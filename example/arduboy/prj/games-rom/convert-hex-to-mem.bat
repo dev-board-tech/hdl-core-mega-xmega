@@ -1,0 +1,2 @@
+IntelHexToVerilogMem.exe -i "C:\GitHub\comercial\ardufpga\rtl\ardufpga\mega\arduboy-emulator-xilinx\roms\Arcade_2PlayersPack_2PlayersPack.hex" -o "C:\GitHub\comercial\ardufpga\rtl\ardufpga\mega\arduboy-emulator-xilinx\roms\Arcade_2PlayersPack_2PlayersPack.mem" -g "2" -s "1" -b "0x0000"
+pause

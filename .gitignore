@@ -1,0 +1,10 @@
+example/arduboy/prj/xilinx/.Xil/*
+example/arduboy/prj/xilinx/arduboy.cache/*
+example/arduboy/prj/xilinx/arduboy.hw/*
+example/arduboy/prj/xilinx/arduboy.ip_user_files/*
+example/arduboy/prj/xilinx/arduboy.runs/*
+example/arduboy/prj/xilinx/arduboy.sim/*
+
+*.jou
+*.log
+*.str
