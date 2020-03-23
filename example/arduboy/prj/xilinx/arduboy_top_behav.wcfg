@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="top_sim_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="glbl" />
+            <top_module name="top_sim" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="1538550500fs"></ZoomStartTime>
+      <ZoomEndTime time="1540371501fs"></ZoomEndTime>
+      <Cursor1Time time="1538857500fs"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="208"></NameColumnWidth>
+      <ValueColumnWidth column_width="135"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="12" />
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/rst" type="logic">
+      <obj_property name="ElementShortName">rst</obj_property>
+      <obj_property name="ObjectShortName">rst</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/pgm_addr" type="array">
+      <obj_property name="ElementShortName">pgm_addr[14:0]</obj_property>
+      <obj_property name="ObjectShortName">pgm_addr[14:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/pgm_data" type="array">
+      <obj_property name="ElementShortName">pgm_data[15:0]</obj_property>
+      <obj_property name="ObjectShortName">pgm_data[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/data_addr" type="array">
+      <obj_property name="ElementShortName">data_addr[11:0]</obj_property>
+      <obj_property name="ObjectShortName">data_addr[11:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/core_data_out" type="array">
+      <obj_property name="ElementShortName">core_data_out[7:0]</obj_property>
+      <obj_property name="ObjectShortName">core_data_out[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/data_write" type="logic">
+      <obj_property name="ElementShortName">data_write</obj_property>
+      <obj_property name="ObjectShortName">data_write</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/core_data_in" type="array">
+      <obj_property name="ElementShortName">core_data_in[7:0]</obj_property>
+      <obj_property name="ObjectShortName">core_data_in[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/data_read" type="logic">
+      <obj_property name="ElementShortName">data_read</obj_property>
+      <obj_property name="ObjectShortName">data_read</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_sig" type="array">
+      <obj_property name="ElementShortName">int_sig[41:0]</obj_property>
+      <obj_property name="ObjectShortName">int_sig[41:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_rst" type="array">
+      <obj_property name="ElementShortName">int_rst[41:0]</obj_property>
+      <obj_property name="ObjectShortName">int_rst[41:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/SREG" type="array">
+      <obj_property name="ElementShortName">SREG[7:0]</obj_property>
+      <obj_property name="ObjectShortName">SREG[7:0]</obj_property>
+   </wvobject>
+</wave_config>

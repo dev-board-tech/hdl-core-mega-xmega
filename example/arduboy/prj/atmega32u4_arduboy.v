@@ -40,7 +40,7 @@
 `define EEP_ADDR_WIDTH			10
 `define RESERVED_RAM_FOR_IO		'h100
 
-`define VECTOR_INT_TABLE_SIZE	42
+`define VECTOR_INT_TABLE_SIZE	43// 42 + NMI
 `define WATCHDOG_CNT_WIDTH		0//27
 
 /* DATA BUS DEMULTIPLEXER */
@@ -116,29 +116,26 @@ module atmega32u4_arduboy # (
 	parameter USE_TIMER_4 = "TRUE",
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
-	parameter USE_EEPROM = "TRUE"
+	parameter USE_EEPROM = "TRUE",
+	parameter USE_RNG_AS_ADC ="TRUE"
 )(
 	input rst,
 	input clk,
 	input clk_pll,
+	input nmi_sig,
+	output nmi_rst,
 	input halt,
 	output halt_ack,
     input [5:0] buttons,
     output [2:0] RGB,
     output Buzzer1, Buzzer2, OledDC, OledCS, OledRST, spi_scl, spi_mosi,
 	/* For IO's that are not included in original ATmega32u4 device */
-	output [5:0]io_addr,
-	output [7:0]io_out,
-	output io_write,
-	input [7:0]io_ext_in,
-	output io_read,
-	
-	input [24:0]deb_addr,
-	input deb_wr,
-	input [7:0]deb_data_in,
-	input deb_rd,
-	output [7:0]deb_data_out,
-	input deb_en,
+	output [7:0]ram_addr,
+	output [7:0]ram_out,
+	output ram_write,
+	input [7:0]ram_in,
+	output ram_read,
+	output ram_sel,
 	
 	output eep_content_modifyed,
 
@@ -156,6 +153,8 @@ wire [7:0]core_data_out;
 wire data_write;
 wire [7:0]core_data_in;
 wire data_read;
+assign ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
+
 /* !CORE WIRES */
 
 
@@ -332,7 +331,6 @@ assign pf[7] = piof_out_io_connect[7] ? pf_out[7] : 1'bz;*/
 
 
 /* Interrupt wires */
-wire ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
 wire int_int0 = 0;
 wire int_int1 = 0;
 wire int_int2 = 0;
@@ -422,54 +420,6 @@ wire int_timer4_ovf_rst;
 wire int_timer4_fpf_rst;
 /* !Interrupt reset wires */
 
-/* Busses MUX/DMUX module for debug interface. */
-wire[16:0]ext_pgm_addr;
-wire[15:0]ext_pgm_data_in;
-wire ext_pgm_data_wr;
-wire[15:0]ext_pgm_data_out;
-wire ext_pgm_data_rd;
-wire ext_pgm_data_en = 0;
-	
-wire[15:0]ext_ram_addr;
-wire[7:0]ext_ram_data_in;
-wire ext_ram_data_wr;
-wire[7:0]ext_ram_data_out;
-wire ext_ram_data_rd;
-wire ext_ram_data_en = 0;
-	
-generate
-if (0)
-begin
-mega_debug_mem_sel mega_debug (
-
-	.rst(rst),
-	.clk(clk),
-
-	.deb_addr(deb_addr),
-	.deb_wr(deb_wr),
-	.deb_data_in(deb_data_in),
-	.deb_rd(deb_rd),
-	.deb_data_out(deb_data_out),
-	.deb_en(deb_en),
-
-	.ext_pgm_addr(ext_pgm_addr),
-	.ext_pgm_data_in(ext_pgm_data_in),
-	.ext_pgm_data_wr(ext_pgm_data_wr),
-	.ext_pgm_data_out(ext_pgm_data_out),
-	.ext_pgm_data_rd(ext_pgm_data_rd),
-	.ext_pgm_data_en(ext_pgm_data_en),
-	
-	.ext_ram_addr(ext_ram_addr),
-	.ext_ram_data_in(ext_ram_data_in),
-	.ext_ram_data_wr(ext_ram_data_wr),
-	.ext_ram_data_out(ext_ram_data_out),
-	.ext_ram_data_rd(ext_ram_data_rd),
-	.ext_ram_data_en(ext_ram_data_en)
-);
-end
-endgenerate
-/* !Busses MUX/DMUX module for debug interface. */
-
 /* PORTB */
 wire [7:0]dat_pb_d_out;
 generate
@@ -493,11 +443,11 @@ atmega_pio # (
 )pio_b(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pb_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pb_d_out),
 
 	.io_in(pb_in),
 	.io_out(pb_out),
@@ -534,11 +484,11 @@ atmega_pio # (
 )pio_c(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pc_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pc_d_out),
 
 	.io_in(pc_in),
 	.io_out(pc_out),
@@ -575,11 +525,11 @@ atmega_pio # (
 )pio_d(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pd_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pd_d_out),
 
 	.io_in(pd_in),
 	.io_out(pd_out),
@@ -616,11 +566,11 @@ atmega_pio # (
 )pio_e(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pe_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pe_d_out),
 
 	.io_in(pe_in),
 	.io_out(pe_out),
@@ -657,11 +607,11 @@ atmega_pio # (
 )pio_f(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pf_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pf_d_out),
 
 	.io_in(pf_in),
 	.io_out(pf_out),
@@ -679,7 +629,7 @@ endgenerate
 wire [7:0]dat_spi_d_out;
 generate
 if (USE_SPI_1 == "TRUE")
-begin: SPI_DISPLAY
+begin: SPI1
 atmega_spi_m # (
 	.PLATFORM(PLATFORM),
 	.BUS_ADDR_DATA_LEN(8),
@@ -695,11 +645,11 @@ atmega_spi_m # (
 	.rst(rst),
 	.halt(halt_ack),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_spi_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_spi_d_out),
 	.int(int_spi_stc),
 	.int_rst(int_spi_stc_rst),
 	.io_connect(spi_io_connect),
@@ -737,11 +687,11 @@ atmega_uart # (
 	)uart(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_uart0_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_uart0_d_out),
 	.rxc_int(int_usart1_rx),
 	.rxc_int_rst(int_usart1_rx_rst),
 	.txc_int(int_usart1_tx),
@@ -805,11 +755,11 @@ atmega_tim_8bit # (
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim0_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_tim0_d_out),
 	.tov_int(int_timer0_ovf),
 	.tov_int_rst(int_timer0_ovf_rst),
 	.ocra_int(int_timer0_compa),
@@ -870,11 +820,11 @@ atmega_tim_16bit # (
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim1_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_tim1_d_out),
 	.tov_int(int_timer1_ovf),
 	.tov_int_rst(int_timer1_ovf_rst),
 	.ocra_int(int_timer1_compa),
@@ -900,6 +850,10 @@ end
 else
 begin
 assign dat_tim1_d_out = 0;
+assign int_timer1_ovf = 0;
+assign int_timer1_compa = 0;
+assign int_timer1_compb = 0;
+assign int_timer1_compc = 0;
 end
 endgenerate
 /* !TIMER 1 */
@@ -939,11 +893,11 @@ atmega_tim_16bit # (
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim3_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_tim3_d_out),
 	.tov_int(int_timer3_ovf),
 	.tov_int_rst(int_timer3_ovf_rst),
 	.ocra_int(int_timer3_compa),
@@ -969,6 +923,10 @@ end
 else
 begin
 assign dat_tim3_d_out = 0;
+assign int_timer3_ovf = 0;
+assign int_timer3_compa = 0;
+assign int_timer3_compb = 0;
+assign int_timer3_compc = 0;
 end
 endgenerate
 /* !TIMER 3 */
@@ -988,11 +946,11 @@ atmega_pll # (
 	.rst(rst),
 	.clk(clk),
 	.clk_pll(clk_pll),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_pll_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_pll_d_out),
 	.pll_enabled(pll_enabled),
 
 	.usb_ck_out(usb_ck_out),
@@ -1036,11 +994,11 @@ atmega_tim_10bit # (
 	.clk(clk),
 	.clk_pll(tim_ck_out),
 	.pll_enabled(pll_enabled),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim4_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_tim4_d_out),
 	.tov_int(int_timer4_ovf),
 	.tov_int_rst(int_timer4_ovf_rst),
 	.ocra_int(int_timer4_compa),
@@ -1070,6 +1028,9 @@ end
 else
 begin
 assign dat_tim4_d_out = 0;
+assign int_timer4_ovf = 0;
+assign int_timer4_compa = 0;
+assign int_timer4_compb = 0;
 end
 endgenerate
 /* !TIMER 4 */
@@ -1090,11 +1051,11 @@ atmega_eep # (
 )eep(
 	.rst(rst),
 	.clk(clk),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_eeprom_d_out),
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_eeprom_d_out),
 	.int(int_ee_ready),
 	.int_rst(int_ee_ready_rst),
 	/*.ext_eep_addr(0),
@@ -1114,41 +1075,56 @@ end
 endgenerate
 /* !EEPROM */
 
+/* RNG as ADC */
+wire [7:0]dat_adc_d_out;
+generate
+if(USE_RNG_AS_ADC == "TRUE")
+begin: ADC
+atmega_rng_as_adc # (
+	.PLATFORM("XILINX"),
+	.BUS_ADDR_DATA_LEN(8),
+	.RNG_BIT_NR(10),
+	.ADCL_ADDR('h78),
+	.ADCH_ADDR('h79),
+	.ADCSRA_ADDR('h7A),
+	.ADCSRB_ADDR('h7B),
+	.ADMUX_ADDR('h7C)
+)adc(
+	.rst(rst),
+	.clk(clk),
+
+	.addr(data_addr[7:0]),
+	.wr(data_write & ~ram_sel),
+	.rd(data_read & ~ram_sel),
+	.bus_in(core_data_out),
+	.bus_out(dat_adc_d_out)
+    );
+end
+else
+begin
+assign dat_adc_d_out = 0;
+end
+endgenerate
+/* !RNG as ADC */
+
 /* ROM APP */
-wire [15:0]pgm_data_app;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
 	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH(2 ** `ROM_ADDR_WIDTH),
 	.DATA_BUS_WIDTH(16),
 	.RAM_PATH(ROM_PATH)
 )rom_app(
 	.clk(core_clk),
-	.cs(ext_pgm_data_en ? ~ext_pgm_addr[14] : ~pgm_addr[14]),
-	.re(ext_pgm_data_en ? ext_pgm_data_rd : 1'b1),
-	.we(ext_pgm_data_en ? ext_pgm_data_wr : 1'b0),
-	.a(ext_pgm_data_en ? ext_pgm_addr : pgm_addr),
-	.d_in(ext_pgm_data_in),
-	.d_out(pgm_data_app)
+	.cs(1'b1),
+	.re(1'b1),
+	.we(1'b0),
+	.a(pgm_addr),
+	.d_in(),
+	.d_out(pgm_data)
 );
-wire [15:0]pgm_data_boot;
-mega_ram  #(
-	.PLATFORM(PLATFORM),
-	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
-	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH),
-	.DATA_BUS_WIDTH(16),
-	.RAM_PATH(ROM_PATH)
-)rom_boot(
-	.clk(core_clk),
-	.cs(ext_pgm_data_en ? ext_pgm_addr[14] : pgm_addr[14]),
-	.re(ext_pgm_data_en ? ext_pgm_data_rd : 1'b1),
-	.we(ext_pgm_data_en ? ext_pgm_data_wr : 1'b0),
-	.a(ext_pgm_data_en ? ext_pgm_addr : pgm_addr),
-	.d_in(ext_pgm_data_in),
-	.d_out(pgm_data_boot)
-);
-assign pgm_data = pgm_data_app | pgm_data_boot;
-assign ext_pgm_data_out = pgm_data;
+
 /*
 mega_rom  #(
 .ADDR_ROM_BUS_WIDTH(`ROM_ADDR_WIDTH),
@@ -1166,6 +1142,7 @@ mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE("SRAM"), // "BLOK","SRAM"
 	.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH('hA00),
 	.DATA_BUS_WIDTH(8),
 	.RAM_PATH("")
 )ram(
@@ -1173,7 +1150,7 @@ mega_ram  #(
 	.cs(ram_sel),
 	.re(data_read),
 	.we(data_write),
-	.a(data_addr[`RAM_ADDR_WIDTH-1:0]/* - `RESERVED_RAM_FOR_IO*/),
+	.a(data_addr[`RAM_ADDR_WIDTH-1:0] - `RESERVED_RAM_FOR_IO),
 	.d_in(core_data_out),
 	.d_out(ram_bus_out)
 );
@@ -1181,10 +1158,11 @@ mega_ram  #(
 
 /* DATA BUS IN DEMULTIPLEXER */
 io_bus_dmux #(
-	.NR_OF_BUSSES_IN(14)
+	.NR_OF_BUSSES_IN(16)
 	)
 	ram_bus_dmux_inst(
 	.bus_in({
+	ram_in, 
 	ram_bus_out,
 	dat_pb_d_out,
 	dat_pc_d_out,
@@ -1198,22 +1176,14 @@ io_bus_dmux #(
 	dat_tim4_d_out,
 	dat_pll_d_out,
 	dat_eeprom_d_out,
-	dat_uart0_d_out
+	dat_uart0_d_out,
+	dat_adc_d_out
 	}),
 	.bus_out(core_data_in)
 	);
 /* !DATA BUS IN DEMULTIPLEXER */
 
 /* ATMEGA CORE */
-wire [`BUS_ADDR_DATA_LEN-1:0]data_addr_core;
-wire [7:0]core_data_out_core;
-wire data_write_core;
-wire data_read_core;
-assign data_write = ext_ram_data_en ? ext_ram_data_wr : data_write_core;
-assign data_read = ext_ram_data_en ? ext_ram_data_rd : data_read_core;
-assign data_addr = ext_ram_data_en ? ext_ram_addr : data_addr_core;
-assign core_data_out = ext_ram_data_en ? ext_ram_data_in : core_data_out_core;
-assign ext_ram_data_out = core_data_in;
 
 
 mega # (
@@ -1239,11 +1209,11 @@ mega # (
 	.pgm_addr(pgm_addr),
 	.pgm_data(pgm_data),
 	// RAM space data interface.
-	.data_addr(data_addr_core),
-	.data_out(core_data_out_core),
-	.data_write(data_write_core),
+	.data_addr(data_addr),
+	.data_out(core_data_out),
+	.data_write(data_write),
 	.data_in(core_data_in),
-	.data_read(data_read_core),
+	.data_read(data_read),
 	// Interrupt lines from all IO's.
 	.int_sig({
 	int_timer4_fpf, int_timer4_ovf, int_timer4_compd, int_timer4_compb, int_timer4_compa,
@@ -1264,7 +1234,8 @@ mega # (
 	int_reserved3,
 	int_int6,
 	int_reserved1, int_reserved0,
-	int_int3, int_int2, int_int1, int_int0}
+	int_int3, int_int2, int_int1, int_int0,
+	nmi_sig}
 	),
 	// Interrupt reset lines going to all IO's.
 	.int_rst({
@@ -1286,7 +1257,8 @@ mega # (
 	int_reserved3_rst,
 	int_int6_rst,
 	int_reserved1_rst, int_reserved0_rst,
-	int_int3_rst, int_int2_rst, int_int1_rst, int_int0_rst}
+	int_int3_rst, int_int2_rst, int_int1_rst, int_int0_rst,
+	nmi_rst}
 	)
 );
 /* !ATMEGA CORE */

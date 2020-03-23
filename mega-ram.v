@@ -24,6 +24,7 @@
 	parameter PLATFORM = "XILINX",
 	parameter MEM_MODE = "BLOCK",
 	parameter ADDR_BUS_WIDTH = 13,  /* < in address lines */
+	parameter ADDR_RAM_DEPTH = 2 ** ADDR_BUS_WIDTH,  /* < in address lines */
 	parameter DATA_BUS_WIDTH = 8,
 	parameter RAM_PATH = ""
 ) (
@@ -37,12 +38,12 @@
 );
 
 generate
-/***************************************************************************/
+
 if(PLATFORM == "XILINX")
 begin
 	
 (* rom_style="block" *)
-reg [DATA_BUS_WIDTH - 1:0] mem [(2**ADDR_BUS_WIDTH)-1:0];
+reg [DATA_BUS_WIDTH - 1:0] mem [ADDR_RAM_DEPTH-1:0];
     
 initial begin
 if (RAM_PATH != "")
@@ -62,7 +63,6 @@ end
 assign d_out = (cs & re) ? d_out_tmp : 8'b00;
 
 end
-/***************************************************************************/
 else if(PLATFORM == "iCE40UP")
 begin
 
@@ -70,15 +70,14 @@ wire [15:0]d_out_w;
 wire [DATA_BUS_WIDTH - 1:0]d_out_w_b;
 reg [DATA_BUS_WIDTH - 1:0]d_out_tmp;
 reg [ADDR_BUS_WIDTH-1:0] addr;
-/*-------------------------------------------------------------------*/
 if(MEM_MODE == "BLOCK")
 begin
 (* rom_style="block" *)
-reg [DATA_BUS_WIDTH - 1:0] mem [(2**ADDR_BUS_WIDTH)-1:0];
+reg [DATA_BUS_WIDTH - 1:0] mem [ADDR_RAM_DEPTH-1:0];
     
 initial begin
 if (RAM_PATH != "")
-	$readmemh({RAM_PATH, ".mem"}, mem);
+	$readmemh(RAM_PATH, mem);
 end
 
 always@(posedge clk) begin
@@ -89,7 +88,6 @@ always@(posedge clk) begin
 	d_out_tmp <= mem[a];
 end
 end/* MEM_MODE != "BLOCK" */
-/*-------------------------------------------------------------------*/
 else
 begin
 
@@ -100,10 +98,10 @@ end
 
 SP256K  ramfn_inst1(
 	.DI(DATA_BUS_WIDTH == 8 ? (addr[0] ? {d_in[7:0], 8'h00} : {8'h00, d_in[7:0]}) : d_in),
-	.AD(DATA_BUS_WIDTH == 8 ? addr[ADDR_BUS_WIDTH-1 : (DATA_BUS_WIDTH == 8 ? 1 : 0)] : addr),
+	.AD(DATA_BUS_WIDTH == 8 ? addr[ADDR_BUS_WIDTH-1 : 1] : addr),
 	.MASKWE(DATA_BUS_WIDTH == 8 ? (addr[0] ? 4'b1100 : 4'b0011) : 4'b1111),
 	.WE(we),
-	.CS(cs),
+	.CS(1'b1),
 	.CK(clk),
 	.STDBY(1'b0),
 	.SLEEP(1'b0),
@@ -111,7 +109,7 @@ SP256K  ramfn_inst1(
 	.DO(d_out_w)
 );
 
-assign d_out_w_b = DATA_BUS_WIDTH == 8 ? (addr[0] ? d_out_w[15:0] : d_out_w[7:0]) : d_out_w;
+assign d_out_w_b = DATA_BUS_WIDTH == 8 ? (addr[0] ? d_out_w[15:8] : d_out_w[7:0]) : d_out_w;
 
 always @ (*)
 begin
@@ -119,10 +117,8 @@ begin
 end
 
 end/* MEM_MODE != "SRAM" */
-/*-------------------------------------------------------------------*/
 assign d_out = (cs & re) ? d_out_tmp : 'b00;
 end/* PLATFORM != "iCE40UP" */
 
-/***************************************************************************/
 endgenerate
 endmodule

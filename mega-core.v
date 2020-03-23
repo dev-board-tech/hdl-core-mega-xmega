@@ -150,12 +150,14 @@ endmodule
 
 module mega #(
 	parameter PLATFORM = "XILINX",
+	parameter BOOT_ADDR = 0,
 	parameter USE_HALT = "FALSE",
-	parameter  [`CORE_TYPE_BUS_LEN - 1:0]CORE_TYPE = `MEGA_XMEGA_1,
+	parameter CORE_TYPE = `MEGA_XMEGA_1,
 	parameter ROM_ADDR_WIDTH = 16,
 	parameter RAM_ADDR_WIDTH = 16,
 	parameter WATCHDOG_CNT_WIDTH = 0,
 	parameter VECTOR_INT_TABLE_SIZE = 0,
+	parameter NMI_VECTOR = 0,
 	parameter REGS_REGISTERED = "FALSE"
 	)(
 	input rst,
@@ -290,7 +292,10 @@ begin
 				end
 				{3'b111, `STEP1}: 
 				begin
-					pgm_data_int = {current_int_vect_registered, 1'b0};
+					if(current_int_vect_registered == 1)
+						pgm_data_int = NMI_VECTOR;
+					else
+						pgm_data_int = {current_int_vect_registered - 1, 1'b0};
 					int_registered = 1'b1;
 				end
 			endcase
@@ -439,7 +444,7 @@ begin
 		halt_int <= 'h0;
 		halt_ack_n <= 'h0;
 		cnt_rst = 1'b1;
-		PC <= 'h000000;
+		PC <= BOOT_ADDR;
 		state_cnt <= `STEP0;
 		//SP <= 8'h00;
 		//SREG <= 8'h00;
@@ -529,18 +534,6 @@ begin
 							6'h3F: SREG <= reg_rs1;
 						endcase
 					end
-					/*{1'b1, `STEP1, `INSTRUCTION_CBI_SBI}:
-					begin
-						case(pgm_data_registered[7:3])
-							6'h3F: 
-							begin
-								if(pgm_data_registered[9])
-									SREG <= data_in_int | (2 ** pgm_data_registered[2:0]);
-								else
-									SREG <= data_in_int & ~(2 ** pgm_data_registered[2:0]);
-							end
-						endcase
-					end*/
 				endcase
 	/* Set "SP" */ /*************************************************************/
 				casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
@@ -578,17 +571,6 @@ begin
 						end
 					endcase
 				end
-				/*{1'b1, `STEP1, `INSTRUCTION_CBI_SBI}:
-				begin
-					case(pgm_data_registered[7:3])
-						6'h3D: SP[7:0] <= data_out_int;
-						6'h3E: 
-						begin
-							if(RAM_ADDR_WIDTH > 8)
-								SP[RAM_ADDR_WIDTH - 1:8] <= data_out_int;
-						end
-					endcase
-				end*/
 				endcase
 	/* Set "rs1a" */ /*************************************************************/
 				casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})

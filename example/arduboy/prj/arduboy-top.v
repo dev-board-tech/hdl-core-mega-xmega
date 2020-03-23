@@ -21,7 +21,7 @@
 `timescale 1ns / 1ps
 
 `define PLATFORM				"XILINX"
-`define FLASH_ROM_FILE_NAME		"MiniRogue.ino"
+`define FLASH_ROM_FILE_NAME		"Breakout-v.Division"
 
 `define USE_PIO_A	"FALSE"
 `define USE_SPI_2	"FALSE"
@@ -131,14 +131,6 @@ wire pe_dummy_2 = 0;
 wire [2:0]pe_dummy_5_3 = 0;
 wire pe_dummy_7 = 0;
 wire [3:0]pf_dummy_3_0 = 0;
-
-/* Interface for debug unit. */
-wire [24:0]deb_addr = 0;
-wire deb_wr = 0;
-wire [7:0]deb_data_in = 0;
-wire deb_rd = 0;
-wire [7:0]deb_data_out = 0;
-wire deb_en = 0;
 	
 wire eep_content_modifyed;
 /* !Interface for debug unit. */
@@ -281,11 +273,14 @@ wire halt_ack;
 wire [5:0]io_addr;
 wire [7:0]io_out;
 wire io_write;
-wire [7:0]io_ext_in;
+wire [7:0]io_in;
 wire io_read;
+
+wire nmi_sig = 0;
 
 atmega32u4_arduboy # (
 	.ROM_PATH(`FLASH_ROM_FILE_NAME),
+	//.BOOT_ADDR(16'hFC00),
 	.REGS_REGISTERED("FALSE"),
 	.USE_HALT("FALSE"),
 	.USE_PIO_B("TRUE"),
@@ -301,11 +296,14 @@ atmega32u4_arduboy # (
 	.USE_TIMER_4("TRUE"),
 	.USE_SPI_1("TRUE"),
 	.USE_UART_1("FALSE"),
-	.USE_EEPROM("TRUE")
+	.USE_EEPROM("TRUE"),
+	.USE_RNG_AS_ADC("TRUE")
 ) atmega32u4_arduboy_inst (
 	.rst(sys_rst),
 	.clk(sys_clk),
 	.clk_pll(pll_clk),
+	.nmi_sig(nmi_sig),
+	.nmi_rst(nmi_rst),
 	// Used to halt the core.
 	.halt(halt),
 	.halt_ack(halt_ack),
@@ -320,25 +318,21 @@ atmega32u4_arduboy # (
     .spi_scl(ja[2]),
     .spi_mosi(ja[1]),
 
-	.deb_addr(deb_addr),
-	.deb_wr(deb_wr),
-	.deb_data_in(deb_data_in),
-	.deb_rd(deb_rd),
-	.deb_data_out(deb_data_out),
-	.deb_en(deb_en),
-	
 	.eep_content_modifyed(eep_content_modifyed),
 	
-	.io_addr(io_addr),
-	.io_out(io_out),
-	.io_write(io_write),
-	.io_ext_in(io_ext_in),
-	.io_read(io_read),
+	.ram_addr(io_addr),
+	.ram_out(io_out),
+	.ram_write(io_write),
+	.ram_in(io_in),
+	.ram_read(io_read),
 
 	.debug(debug)
 );
 
 assign LED[3:0] = {ld2, ld1, ld0};
 assign halt = SW[7];
+
+assign io_in = 0;
+
 
 endmodule
