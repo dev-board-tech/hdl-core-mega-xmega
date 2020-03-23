@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1538550500fs"></ZoomStartTime>
-      <ZoomEndTime time="1540371501fs"></ZoomEndTime>
-      <Cursor1Time time="1538857500fs"></Cursor1Time>
+      <ZoomStartTime time="1554136000fs"></ZoomStartTime>
+      <ZoomEndTime time="1555969001fs"></ZoomEndTime>
+      <Cursor1Time time="1555170000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="208"></NameColumnWidth>
-      <ValueColumnWidth column_width="135"></ValueColumnWidth>
+      <ValueColumnWidth column_width="123"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="12" />
+   <WVObjectSize size="20" />
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/rst" type="logic">
       <obj_property name="ElementShortName">rst</obj_property>
       <obj_property name="ObjectShortName">rst</obj_property>
@@ -35,6 +35,14 @@
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/pgm_data" type="array">
       <obj_property name="ElementShortName">pgm_data[15:0]</obj_property>
       <obj_property name="ObjectShortName">pgm_data[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/pgm_data_int" type="array">
+      <obj_property name="ElementShortName">pgm_data_int[15:0]</obj_property>
+      <obj_property name="ObjectShortName">pgm_data_int[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/pgm_data_registered" type="array">
+      <obj_property name="ElementShortName">pgm_data_registered[15:0]</obj_property>
+      <obj_property name="ObjectShortName">pgm_data_registered[15:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/data_addr" type="array">
       <obj_property name="ElementShortName">data_addr[11:0]</obj_property>
@@ -57,15 +65,40 @@
       <obj_property name="ObjectShortName">data_read</obj_property>
    </wvobject>
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_sig" type="array">
-      <obj_property name="ElementShortName">int_sig[41:0]</obj_property>
-      <obj_property name="ObjectShortName">int_sig[41:0]</obj_property>
+      <obj_property name="ElementShortName">int_sig[42:0]</obj_property>
+      <obj_property name="ObjectShortName">int_sig[42:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_request" type="logic">
+      <obj_property name="ElementShortName">int_request</obj_property>
+      <obj_property name="ObjectShortName">int_request</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_registered" type="logic">
+      <obj_property name="ElementShortName">int_registered</obj_property>
+      <obj_property name="ObjectShortName">int_registered</obj_property>
    </wvobject>
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/int_rst" type="array">
-      <obj_property name="ElementShortName">int_rst[41:0]</obj_property>
-      <obj_property name="ObjectShortName">int_rst[41:0]</obj_property>
+      <obj_property name="ElementShortName">int_rst[42:0]</obj_property>
+      <obj_property name="ObjectShortName">int_rst[42:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/SREG" type="array">
       <obj_property name="ElementShortName">SREG[7:0]</obj_property>
       <obj_property name="ObjectShortName">SREG[7:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/state_cnt" type="array">
+      <obj_property name="ElementShortName">state_cnt[1:0]</obj_property>
+      <obj_property name="ObjectShortName">state_cnt[1:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/skip_next_clock" type="logic">
+      <obj_property name="ElementShortName">skip_next_clock</obj_property>
+      <obj_property name="ObjectShortName">skip_next_clock</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/cnt_rst" type="logic">
+      <obj_property name="ElementShortName">cnt_rst</obj_property>
+      <obj_property name="ObjectShortName">cnt_rst</obj_property>
+   </wvobject>
+   <wvobject fp_name="/top_sim/top_inst/atmega32u4_arduboy_inst/atmega32u4_inst/unlock_int_registered_step_2" type="logic">
+      <obj_property name="ElementShortName">unlock_int_registered_step_2</obj_property>
+      <obj_property name="ObjectShortName">unlock_int_registered_step_2</obj_property>
    </wvobject>
 </wave_config>

@@ -153,7 +153,7 @@ wire [31:0]ssd1306_rgb_data;
 generate
 if (`USE_EXTERNAL_SSD1306 != "TRUE" && SIMULATE != "TRUE")
 begin
-lcd #(
+vga #(
 	.MASTER("TRUE"),
 	.DEBUG(""),//"PATERN_RASTER"
 	.DISPLAY_CFG("1280_720_60_DISPLAY_74_25_Mhz"),
@@ -181,7 +181,7 @@ lcd #(
 	.DEDICATED_VRAM_SIZE(0),
 	
 	.FIFO_DEPTH(256)
-)lcd_inst(
+)vga_inst(
 	.rst(sys_rst),
 	.ctrl_clk(),
     .ctrl_addr(),
@@ -267,9 +267,6 @@ wire ld0;
 wire ld1;
 wire ld2;
 
-wire halt;
-wire halt_ack;
-
 wire [5:0]io_addr;
 wire [7:0]io_out;
 wire io_write;
@@ -304,9 +301,6 @@ atmega32u4_arduboy # (
 	.clk_pll(pll_clk),
 	.nmi_sig(nmi_sig),
 	.nmi_rst(nmi_rst),
-	// Used to halt the core.
-	.halt(halt),
-	.halt_ack(halt_ack),
 
     .buttons({SW[0], btnc, btnl, btnr, btnd, btnu}),
     .RGB({ld2, ld1, ld0}),

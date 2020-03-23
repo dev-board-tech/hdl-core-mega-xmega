@@ -124,8 +124,6 @@ module atmega32u4_arduboy # (
 	input clk_pll,
 	input nmi_sig,
 	output nmi_rst,
-	input halt,
-	output halt_ack,
     input [5:0] buttons,
     output [2:0] RGB,
     output Buzzer1, Buzzer2, OledDC, OledCS, OledRST, spi_scl, spi_mosi,
@@ -643,7 +641,6 @@ atmega_spi_m # (
 	.USE_RX("FALSE")
 )spi(
 	.rst(rst),
-	.halt(halt_ack),
 	.clk(clk),
 	.addr(data_addr[7:0]),
 	.wr(data_write & ~ram_sel),
@@ -749,7 +746,6 @@ atmega_tim_8bit # (
 	.TIFR_ADDR('h35)
 )tim_0(
 	.rst(rst),
-	.halt(halt_ack),
 	.clk(clk),
 	.clk8(clk8),
 	.clk64(clk64),
@@ -814,7 +810,6 @@ atmega_tim_16bit # (
 	.TIFR_ADDR('h36)
 )tim_1(
 	.rst(rst),
-	.halt(halt_ack),
 	.clk(clk),
 	.clk8(clk8),
 	.clk64(clk64),
@@ -887,7 +882,6 @@ atmega_tim_16bit # (
 	.TIFR_ADDR('h38)
 )tim_3(
 	.rst(rst),
-	.halt(halt_ack),
 	.clk(clk),
 	.clk8(clk8),
 	.clk64(clk64),
@@ -990,7 +984,6 @@ atmega_tim_10bit # (
 	.TIFR_ADDR('h39)
 )tim_4(
 	.rst(rst),
-	.halt(halt_ack),
 	.clk(clk),
 	.clk_pll(tim_ck_out),
 	.pll_enabled(pll_enabled),
@@ -1202,9 +1195,6 @@ mega # (
 	.clk(core_clk),
 	// Watchdog clock input that can be different from the core clock.
 	.clk_wdt(core_clk),
-	// Used to halt the core.
-	.halt(halt),
-	.halt_ack(halt_ack),
 	// FLASH space data interface.
 	.pgm_addr(pgm_addr),
 	.pgm_data(pgm_data),
