@@ -21,26 +21,66 @@
 `timescale 1ns / 1ps
  
 module mega_rom  #(
+	parameter PLATFORM = "",
 	parameter ADDR_ROM_BUS_WIDTH = 14, /* < in address lines */
 	parameter ROM_PATH = ""
 ) (
 	input clk,
 	input [ADDR_ROM_BUS_WIDTH-1:0] a,
-	output reg[15:0]d
+	input cs,
+	output [15:0]d
 );
 
+reg[15:0]d_int;
+wire[15:0]dw_int;
+generate
+
+if(PLATFORM == "XILINX")
+begin
 (* ram_style="block" *)
 reg [15:0] mem [(2**ADDR_ROM_BUS_WIDTH)-1:0];
 
 initial begin
 if (ROM_PATH != "")
-	$readmemh(ROM_PATH, mem);
+	$readmemh({ROM_PATH, ".mem"}, mem);
 end
+
 
 always @ (posedge clk)
 begin
-	d <= mem[a];
+	d_int <= mem[a];
 end
+
+assign d = cs ? d_int : 16'h0000;
+end
+else if(PLATFORM == "iCE40UP")
+begin
+wire[15:0]d_int;
+
+pmi_rom 
+#(
+	.pmi_addr_depth       (2 ** ADDR_ROM_BUS_WIDTH), // integer       
+    .pmi_addr_width       (ADDR_ROM_BUS_WIDTH), // integer       
+    .pmi_data_width       (16), // integer       
+    .pmi_regmode          ("noreg"), // "reg"|"noreg"     
+    .pmi_gsr              ("enable"), // "enable" | "disable"
+    .pmi_resetmode        ("sync"), // "async" | "sync"	
+    .pmi_init_file        ({ROM_PATH, ".mem"}), // string		
+    .pmi_init_file_format ("hex"), // "binary"|"hex"    
+	.pmi_family           ("iCE40UP"), // "iCE40UP" | "LIFCL"		
+	.module_type          ("pmi_rom")  // string
+) rom_inst (
+	.Address    (a),  // I:
+	.OutClock   (clk),  // I:
+	.OutClockEn (1'b1),  // I:
+	.Reset      (1'b1),  // I:
+	.Q          (dw_int)   // O:
+);
+assign d = cs ? dw_int : 16'h0000;
+end
+
+endgenerate
+
 
 endmodule
 

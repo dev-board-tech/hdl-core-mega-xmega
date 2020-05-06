@@ -24,7 +24,8 @@
 
 module mega_alu # (
 	parameter PLATFORM = "XILINX",
-	parameter CORE_TYPE = `MEGA_XMEGA_1
+	parameter CORE_TYPE = `MEGA_XMEGA_1,
+	parameter COMASATE_MUL = "FALSE"
 	)(
 	input [15:0]inst,
 	input [4:0]rda,
@@ -44,8 +45,11 @@ wire [15:0]mul_result_u_int;
 wire signed [15:0]mul_result_s_int;
 wire signed [15:0]mul_result_s_u_int;
 
+reg [7:0]mul_a;
+reg [7:0]mul_b;
+
 (* use_dsp = "yes" *)
-assign mul_result_u_int = rd * rr;
+assign mul_result_u_int = COMASATE_MUL != "TRUE" ? (rd * rr) : (mul_a * mul_b);
 (* use_dsp = "yes" *)
 assign mul_result_s_int = mul_s_a * mul_s_b;
 (* use_dsp = "yes" *)
@@ -59,6 +63,9 @@ always @ *
 begin
 	sreg_out = sreg_in;
 	R = 16'h0000;
+	//R = rr;
+	mul_a = rd;
+	mul_b = rr;
 	casex({CORE_TYPE, inst})
 		`INSTRUCTION_MOV: 
 		begin
@@ -76,13 +83,22 @@ begin
 		end
 		`INSTRUCTION_MULS:
 		begin
-			R = mul_result_s_int;
+			mul_a[7] = 1'b0;
+			mul_b[7] = 1'b0;
+			if(COMASATE_MUL != "TRUE")
+				R = mul_result_s_int;
+			else
+				R = {rd[7] ^ rr[7], mul_result_u_int[14:0]};
 			sreg_out[`XMEGA_FLAG_C] = R[15];
 			sreg_out[`XMEGA_FLAG_Z] = RD_16_IS_ZERO;
 		end
 		`INSTRUCTION_MULSU:
 		begin
-			R = mul_result_s_u_int;
+			mul_a[7] = 1'b0;
+			if(COMASATE_MUL != "TRUE")
+				R = mul_result_s_u_int;
+			else
+				R = {rd[7], mul_result_u_int[14:0]};
 			sreg_out[`XMEGA_FLAG_C] = R[15];
 			sreg_out[`XMEGA_FLAG_Z] = RD_16_IS_ZERO;
 		end
@@ -93,12 +109,21 @@ begin
 		end
 		`INSTRUCTION_FMULS:
 		begin
-			{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_int, 1'b0};
+			mul_a[7] = 1'b0;
+			mul_b[7] = 1'b0;
+			if(COMASATE_MUL != "TRUE")
+				{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_int, 1'b0};
+			else
+				{sreg_out[`XMEGA_FLAG_C], R} = {rd[7] ^ rr[7], mul_result_u_int[14:0], 1'b0};
 			sreg_out[`XMEGA_FLAG_Z] = RD_16_IS_ZERO;
 		end
 		`INSTRUCTION_FMULSU:
 		begin
-			{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_u_int, 1'b0};
+			mul_a[7] = 1'b0;
+			if(COMASATE_MUL != "TRUE")
+				{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_u_int, 1'b0};
+			else
+				{sreg_out[`XMEGA_FLAG_C], R} = {rd[7], mul_result_u_int[14:0], 1'b0};
 			sreg_out[`XMEGA_FLAG_Z] = RD_16_IS_ZERO;
 		end
 		`INSTRUCTION_SUB: 
@@ -354,11 +379,11 @@ begin
 		begin
 			sreg_out[`XMEGA_FLAG_T] = rd[inst[2:0]];
 		end
-		default:
+		/*default:
 		begin
 			sreg_out = sreg_in;
 			R = 16'h0000;
-		end
+		end*/
 	endcase
 end
 endmodule

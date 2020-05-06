@@ -20,28 +20,18 @@
 
 `timescale 1ns / 1ps
 
-`include "mega_def.v"
-
-`define PLATFORM 				"XILINX"
-//`define USE_PLL
-`define USE_TIMER_0
-`define USE_TIMER_1
-`define USE_TIMER_3
-`define USE_TIMER_4
-`define USE_SPI_1
-//`define USE_UART_1
-`define USE_EEPROM
-
+`include "mega-def.v"
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
 `define CORE_TYPE				`MEGA_ENHANCED_128K
 `define ROM_ADDR_WIDTH			14
-`define BUS_ADDR_DATA_LEN		14
-`define RAM_ADDR_WIDTH			14
+`define BOOT_ADDR_WIDTH			10
+`define BUS_ADDR_DATA_LEN		12
+`define RAM_ADDR_WIDTH			12
 `define EEP_ADDR_WIDTH			10
-`define RESERVED_RAM_FOR_IO		'h100
+`define RESERVED_RAM_FOR_IO		12'h100
 
-`define VECTOR_INT_TABLE_SIZE	42
+`define VECTOR_INT_TABLE_SIZE	43// 42 + NMI
 `define WATCHDOG_CNT_WIDTH		0//27
 
 /* DATA BUS DEMULTIPLEXER */
@@ -99,7 +89,11 @@ assign clk1024 = cnt[9];
 endmodule
 /* !TIMMERS PRESCALLERS MODULE */
 
-module atmega32u4 # (
+module atmega32u4_arduboy # (
+	parameter PLATFORM = "XILINX",
+	parameter REGS_REGISTERED = "FALSE",
+	parameter COMASATE_MUL = "FALSE",
+	parameter BOOT_ADDR = 0,
 	parameter ROM_PATH = "",
 	parameter USE_PIO_B = "TRUE",
 	parameter USE_PIO_C = "TRUE",
@@ -107,59 +101,62 @@ module atmega32u4 # (
 	parameter USE_PIO_E = "TRUE",
 	parameter USE_PIO_F = "TRUE",
 	parameter USE_PLL = "TRUE",
+	parameter USE_PLL_HI_FREQ = "FALSE",
 	parameter USE_TIMER_0 = "TRUE",
 	parameter USE_TIMER_1 = "TRUE",
 	parameter USE_TIMER_3 = "TRUE",
 	parameter USE_TIMER_4 = "TRUE",
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
-	parameter USE_EEPROM = "TRUE"
+	parameter USE_EEPROM = "TRUE",
+	parameter USE_RNG_AS_ADC ="TRUE",
+	parameter TIMER_INCREMENT_VALUE = 2
 )(
-	input rst,
+	input core_rst,
+	input dev_rst,
 	input clk,
+	input clk_io,
 	input clk_pll,
-	input halt,
-	output halt_ack,
-	inout [7:0]pb,
-	inout [7:0]pc,
-	inout [7:0]pd,
-	inout [7:0]pe,
-	inout [7:0]pf,
+	input nmi_sig,
+	output nmi_rst,
+    input [5:0] buttons,
+    output [2:0] RGB,
+    output Buzzer1, Buzzer2, OledDC, OledCS, OledRST, spi_scl, spi_mosi, uSD_CS, ADC_CS,
+	input spi_miso,
+	input uSD_CD,
+	output uart_tx,
+	input uart_rx,
 	/* For IO's that are not included in original ATmega32u4 device */
-	output [5:0]io_addr,
+	output [7:0]io_addr,
 	output [7:0]io_out,
 	output io_write,
-	input [7:0]io_ext_in,
+	input [7:0]io_in,
 	output io_read,
-	
-	input [24:0]deb_addr,
-	input deb_wr,
-	input [7:0]deb_data_in,
-	input deb_rd,
-	output [7:0]deb_data_out,
-	input deb_en,
-	
-	output eep_content_modifyed,
-
-	output [4:0]debug
+	output io_sel,
+	output io_rst
 	);
 
 wire core_clk = clk;
 wire wdt_rst;
-
+ 
 /* CORE WIRES */
-wire [`ROM_ADDR_WIDTH-1:0]pgm_addr;
+wire [15:0]pgm_addr;
 wire [15:0]pgm_data;
 wire [`BUS_ADDR_DATA_LEN-1:0]data_addr;
 wire [7:0]core_data_out;
 wire data_write;
 wire [7:0]core_data_in;
 wire data_read;
-//wire [5:0]io_addr;
-//wire [7:0]io_out;
-//wire io_write;
-wire [7:0]io_in;
-//wire io_read;
+wire ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
+
+wire boot_rom_select = &pgm_addr[15 : `BOOT_ADDR_WIDTH];
+
+assign io_addr = data_addr[7:0];
+assign io_out = core_data_out;
+assign io_write = data_write & io_sel;
+assign io_read = data_read & io_sel;
+assign io_sel = ~ram_sel;
+
 /* !CORE WIRES */
 
 
@@ -216,109 +213,39 @@ wire tim4_oca;
 wire tim4_ocb;
 wire tim4_occ;
 wire tim4_ocd;
-wire spi_scl;
-wire spi_miso;
-wire spi_mosi;
-wire uart_tx;
-wire uart_rx;
+//wire spi_scl;
+//wire spi_miso;
+//wire spi_mosi;
+//wire uart_tx;
+//wire uart_rx;
 wire usb_ck_out;
 wire tim_ck_out;
 /* !IO ALTERNATIVE FUNCTION */
 
-/* Switch pins functionality */
-assign pb_in[0] = pb[0];
-assign pb_in[1] = pb[1];
-assign pb_in[2] = pb[2];
-assign pb_in[3] = pb[3];
-assign pb_in[4] = pb[4];
-assign pb_in[5] = pb[5];
-assign pb_in[6] = pb[6];
-assign pb_in[7] = pb[7];
-//assign spi_scl = (spi_io_connect & io_conn_slave) ? pb[1] : 1'bz; // Add in case of SPI slave usage, this will become input.
-//assign spi_mosi = (spi_io_connect & io_conn_slave) ? pb[2] : 1'bz; // Add in case of SPI slave usage, this will become input.
-assign spi_miso = (spi_io_connect & ~io_conn_slave)  ? pb[3] : 1'bz;
-assign pb[0] = piob_out_io_connect[0] ? pb_out[0] : 1'bz;
-assign pb[1] = (spi_io_connect & ~io_conn_slave) ? spi_scl : (piob_out_io_connect[1] ? pb_out[1] : 1'bz);
-assign pb[2] = (spi_io_connect & ~io_conn_slave) ? spi_mosi : (piob_out_io_connect[2] ? pb_out[2] : 1'bz);
-assign pb[3] = (spi_io_connect & io_conn_slave) ? spi_miso : (piob_out_io_connect[3] ? pb_out[3] : 1'bz);
-assign pb[4] = (piob_out_io_connect[4] ? pb_out[4] : 1'bz);
-assign pb[5] = tim1_oca_io_connect ? tim1_oca : (piob_out_io_connect[5] ? pb_out[5] : 1'bz);
-assign pb[6] = tim1_ocb_io_connect ? tim1_ocb : (piob_out_io_connect[6] ? pb_out[6] : 1'bz);
-assign pb[7] = tim0_oca_io_connect ? tim0_oca : (tim1_occ_io_connect ? tim1_occ : (piob_out_io_connect[7] ? pb_out[7] : 1'bz));
+assign pf_in[6] = buttons[0]; // BUTTON RIGHT
+assign pf_in[5] = buttons[1]; // BUTTON LEFT
+assign pf_in[4] = buttons[2]; // BUTTON DOWN
+assign pf_in[7] = buttons[3]; // BUTTON UP
+assign pe_in[6] = buttons[4]; // BUTTON A
+assign pb_in[4] = buttons[5]; // BUTTON B
 
-assign pc_in[0] = pc[0];
-assign pc_in[1] = pc[1];
-assign pc_in[2] = pc[2];
-assign pc_in[3] = pc[3];
-assign pc_in[4] = pc[4];
-assign pc_in[5] = pc[5];
-assign pc_in[6] = pc[6];
-assign pc_in[7] = pc[7];
-assign pc[0] = pioc_out_io_connect[0] ? pc_out[0] : 1'bz;
-assign pc[1] = pioc_out_io_connect[1] ? pc_out[1] : 1'bz;
-assign pc[2] = pioc_out_io_connect[2] ? pc_out[2] : 1'bz;
-assign pc[3] = pioc_out_io_connect[3] ? pc_out[3] : 1'bz;
-assign pc[4] = pioc_out_io_connect[4] ? pc_out[4] : 1'bz;
-assign pc[5] = pioc_out_io_connect[5] ? pc_out[5] : 1'bz;
-assign pc[6] = tim4_ocan_io_connect ? ~tim4_oca : (tim3_oca_io_connect ? tim3_oca : (pioc_out_io_connect[6] ? pc_out[6] : 1'bz));
-assign pc[7] = tim4_ocap_io_connect ? tim4_oca : (pioc_out_io_connect[7] ? pc_out[7] : 1'bz);
+// RGB LED is common anode (ie. HIGH = OFF)
+assign RGB[2] = pb_out[6];
+assign RGB[1] = pb_out[7];
+assign RGB[0] = pb_out[5];
 
-assign pd_in[0] = pd[0];
-assign pd_in[1] = pd[1];
-assign pd_in[2] = pd[2];
-assign pd_in[3] = pd[3];
-assign pd_in[4] = pd[4];
-assign pd_in[5] = pd[5];
-assign pd_in[6] = pd[6];
-assign pd_in[7] = pd[7];
-assign uart_rx = pd[2];
-assign pd[0] = tim0_ocb_io_connect ? tim0_ocb : (piod_out_io_connect[0] ? pd_out[0] : 1'bz);
-assign pd[1] = piod_out_io_connect[1] ? pd_out[1] : 1'bz;
-assign pd[2] = piod_out_io_connect[2] ? pd_out[2] : 1'bz;
-assign pd[3] = uart_tx_io_connect ? uart_tx : (piod_out_io_connect[3] ? pd_out[3] : 1'bz);
-assign pd[4] = piod_out_io_connect[4] ? pd_out[4] : 1'bz;
-assign pd[5] = piod_out_io_connect[5] ? pd_out[5] : 1'bz;
-assign pd[6] = piod_out_io_connect[6] ? pd_out[6] : 1'bz;
-assign pd[7] = piod_out_io_connect[7] ? pd_out[7] : 1'bz;
+assign Buzzer1 = tim4_ocan_io_connect ? ~tim4_oca : pc_out[6];
+assign Buzzer2 = tim4_ocap_io_connect ? tim4_oca : pc_out[7];
+assign OledDC = pd_out[4];
+assign OledCS = pd_out[6];
+assign OledRST = pd_out[7];
 
-assign pe_in[0] = pe[0];
-assign pe_in[1] = pe[1];
-assign pe_in[2] = pe[2];
-assign pe_in[3] = pe[3];
-assign pe_in[4] = pe[4];
-assign pe_in[5] = pe[5];
-assign pe_in[6] = pe[6];
-assign pe_in[7] = pe[7];
-assign pe[0] = pioe_out_io_connect[0] ? pe_out[0] : 1'bz;
-assign pe[1] = pioe_out_io_connect[1] ? pe_out[1] : 1'bz;
-assign pe[2] = pioe_out_io_connect[2] ? pe_out[2] : 1'bz;
-assign pe[3] = pioe_out_io_connect[3] ? pe_out[3] : 1'bz;
-assign pe[4] = pioe_out_io_connect[4] ? pe_out[4] : 1'bz;
-assign pe[5] = pioe_out_io_connect[5] ? pe_out[5] : 1'bz;
-assign pe[6] = pioe_out_io_connect[6] ? pe_out[6] : 1'bz;
-assign pe[7] = pioe_out_io_connect[7] ? pe_out[7] : 1'bz;
-
-assign pf_in[0] = pf[0];
-assign pf_in[1] = pf[1];
-assign pf_in[2] = pf[2];
-assign pf_in[3] = pf[3];
-assign pf_in[4] = pf[4];
-assign pf_in[5] = pf[5];
-assign pf_in[6] = pf[6];
-assign pf_in[7] = pf[7];
-assign pf[0] = piof_out_io_connect[0] ? pf_out[0] : 1'bz;
-assign pf[1] = piof_out_io_connect[1] ? pf_out[1] : 1'bz;
-assign pf[2] = piof_out_io_connect[2] ? pf_out[2] : 1'bz;
-assign pf[3] = piof_out_io_connect[3] ? pf_out[3] : 1'bz;
-assign pf[4] = piof_out_io_connect[4] ? pf_out[4] : 1'bz;
-assign pf[5] = piof_out_io_connect[5] ? pf_out[5] : 1'bz;
-assign pf[6] = piof_out_io_connect[6] ? pf_out[6] : 1'bz;
-assign pf[7] = piof_out_io_connect[7] ? pf_out[7] : 1'bz;
-/* !Switch pins functionality */
+assign uSD_CS = pd_out[2];
+assign pd_in[1] = uSD_CD;
+assign ADC_CS = pd_out[3];
 
 
 /* Interrupt wires */
-wire ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
 wire int_int0 = 0;
 wire int_int1 = 0;
 wire int_int2 = 0;
@@ -364,21 +291,21 @@ wire int_timer4_fpf = 0;
 /* !Interrupt wires */
 
 /* Interrupt reset wires */
-wire int_int0_rst = 0;
-wire int_int1_rst = 0;
-wire int_int2_rst = 0;
-wire int_int3_rst = 0;
-wire int_reserved0_rst = 0;
-wire int_reserved1_rst = 0;
-wire int_int6_rst = 0;
-wire int_reserved3_rst = 0;
-wire int_pcint0_rst = 0;
-wire int_usb_general_rst = 0;
-wire int_usb_endpoint_rst = 0;
-wire int_wdt_rst = 0;
-wire int_reserved4_rst = 0;
-wire int_reserved5_rst = 0;
-wire int_reserved6_rst = 0;
+wire int_int0_rst;
+wire int_int1_rst;
+wire int_int2_rst;
+wire int_int3_rst;
+wire int_reserved0_rst;
+wire int_reserved1_rst;
+wire int_int6_rst;
+wire int_reserved3_rst;
+wire int_pcint0_rst;
+wire int_usb_general_rst;
+wire int_usb_endpoint_rst;
+wire int_wdt_rst;
+wire int_reserved4_rst;
+wire int_reserved5_rst;
+wire int_reserved6_rst;
 wire int_timer1_capt_rst;
 wire int_timer1_compa_rst;
 wire int_timer1_compb_rst;
@@ -391,319 +318,233 @@ wire int_spi_stc_rst;
 wire int_usart1_rx_rst;
 wire int_usart1_udre_rst;
 wire int_usart1_tx_rst;
-wire int_analog_comp_rst = 0;
-wire int_adc_rst = 0;
+wire int_analog_comp_rst;
+wire int_adc_rst;
 wire int_ee_ready_rst;
-wire int_timer3_capt_rst = 0;
+wire int_timer3_capt_rst;
 wire int_timer3_compa_rst;
 wire int_timer3_compb_rst;
 wire int_timer3_compc_rst;
 wire int_timer3_ovf_rst;
-wire int_twi_rst = 0;
-wire int_spm_ready_rst = 0;
+wire int_twi_rst;
+wire int_spm_ready_rst;
 wire int_timer4_compa_rst;
 wire int_timer4_compb_rst;
 wire int_timer4_compd_rst;
 wire int_timer4_ovf_rst;
-wire int_timer4_fpf_rst = 0;
+wire int_timer4_fpf_rst;
 /* !Interrupt reset wires */
 
-/* Busses MUX/DMUX module for debug interface. */
-wire[16:0]ext_pgm_addr;
-wire[15:0]ext_pgm_data_in;
-wire ext_pgm_data_wr;
-wire[7:0]ext_pgm_data_out;
-wire ext_pgm_data_rd;
-wire ext_pgm_data_en;
-	
-wire[15:0]ext_ram_addr;
-wire[7:0]ext_ram_data_in;
-wire ext_ram_data_wr;
-wire[7:0]ext_ram_data_out;
-wire ext_ram_data_rd;
-wire ext_ram_data_en;
-	
-wire[5:0]ext_io_addr;
-wire[7:0]ext_io_data_in;
-wire ext_io_data_wr;
-wire[7:0]ext_io_data_out;
-wire ext_io_data_rd;
-wire ext_io_data_en;
-	
-wire[15:0]ext_eep_addr;
-wire[7:0]ext_eep_data_in;
-wire ext_eep_data_wr;
-wire[7:0]ext_eep_data_out;
-wire ext_eep_data_rd;
-wire ext_eep_data_en;
-	
-wire[4:0]ext_reg_addr;
-wire[7:0]ext_reg_data_in;
-wire ext_reg_data_wr;
-wire[7:0]ext_reg_data_out;
-wire ext_reg_data_rd;
-wire ext_reg_data_en;
-
-mega_debug_mem_sel mega_debug(
-
-	.rst(rst),
-	.clk(clk),
-	.deb_addr(deb_addr),
-	.deb_wr(deb_wr),
-	.deb_data_in(deb_data_in),
-	.deb_rd(deb_rd),
-	.deb_data_out(deb_data_out),
-	.deb_en(deb_en),
-
-	.ext_pgm_addr(ext_pgm_addr),
-	.ext_pgm_data_in(ext_pgm_data_in),
-	.ext_pgm_data_wr(ext_pgm_data_wr),
-	.ext_pgm_data_out(ext_pgm_data_out),
-	.ext_pgm_data_rd(ext_pgm_data_rd),
-	.ext_pgm_data_en(ext_pgm_data_en),
-	
-	.ext_ram_addr(ext_ram_addr),
-	.ext_ram_data_in(ext_ram_data_in),
-	.ext_ram_data_wr(ext_ram_data_wr),
-	.ext_ram_data_out(ext_ram_data_out),
-	.ext_ram_data_rd(ext_ram_data_rd),
-	.ext_ram_data_en(ext_ram_data_en),
-	
-	.ext_io_addr(ext_io_addr),
-	.ext_io_data_in(ext_io_data_in),
-	.ext_io_data_wr(ext_io_data_wr),
-	.ext_io_data_out(ext_io_data_out),
-	.ext_io_data_rd(ext_io_data_rd),
-	.ext_io_data_en(ext_io_data_en),
-	
-	.ext_eep_addr(ext_eep_addr),
-	.ext_eep_data_in(ext_eep_data_in),
-	.ext_eep_data_wr(ext_eep_data_wr),
-	.ext_eep_data_out(ext_eep_data_out),
-	.ext_eep_data_rd(ext_eep_data_rd),
-	.ext_eep_data_en(ext_eep_data_en),
-	
-	.ext_reg_addr(ext_reg_addr),
-	.ext_reg_data_in(ext_reg_data_in),
-	.ext_reg_data_wr(ext_reg_data_wr),
-	.ext_reg_data_out(ext_reg_data_out),
-	.ext_reg_data_rd(ext_reg_data_rd),
-	.ext_reg_data_en(ext_reg_data_en)
-);
-/* !Busses MUX/DMUX module for debug interface. */
-
 /* PORTB */
-wire [7:0]io_pb_d_out;
+wire [7:0]dat_pb_d_out;
 generate
 if (USE_PIO_B == "TRUE")
 begin: PORTB
 atmega_pio # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.PORT_ADDR(6'h05),
-	.DDR_ADDR(6'h04),
-	.PIN_ADDR(6'h03),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PORT_OUT_ADDR('h25),
+	.DDR_ADDR('h24),
+	.PIN_ADDR('h23),
 	.PINMASK(8'b11110000),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
-	.INVERSE_MASK(8'b00010000),
+	.INVERSE_MASK(8'b00000000),
 	.OUT_ENABLED_MASK(8'b11101111)
 )pio_b(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pb_d_out),
+	.bus_out(dat_pb_d_out),
 
 	.io_in(pb_in),
 	.io_out(pb_out),
-	.pio_out_io_connect(piob_out_io_connect),
-	.debug()
+	.pio_out_io_connect(piob_out_io_connect)
 	);
 end
 else
 begin
-assign io_pb_d_out = 0;
+assign dat_pb_d_out = 0;
 end
 endgenerate
 /* !PORTB */
 
 /* PORTC */
-wire [7:0]io_pc_d_out;
+wire [7:0]dat_pc_d_out;
 generate
 if (USE_PIO_C == "TRUE")
 begin: PORTC
 atmega_pio # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.PORT_ADDR(6'h08),
-	.DDR_ADDR(6'h07),
-	.PIN_ADDR(6'h06),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PORT_OUT_ADDR('h28),
+	.DDR_ADDR('h27),
+	.PIN_ADDR('h26),
 	.PINMASK(8'b11000000),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
 	.OUT_ENABLED_MASK(8'b11000000)
 )pio_c(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pc_d_out),
+	.bus_out(dat_pc_d_out),
 
 	.io_in(pc_in),
 	.io_out(pc_out),
-	.pio_out_io_connect(pioc_out_io_connect),
-	.debug()
+	.pio_out_io_connect(pioc_out_io_connect)
 	);
 end
 else
 begin
-assign io_pc_d_out = 0;
+assign dat_pc_d_out = 0;
 end
 endgenerate
 /* !PORTC */
 
 /* PORTD */
-wire [7:0]io_pd_d_out;
+wire [7:0]dat_pd_d_out;
 generate
 if (USE_PIO_D == "TRUE")
 begin: PORTD
 atmega_pio # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.PORT_ADDR(6'h0b),
-	.DDR_ADDR(6'h0a),
-	.PIN_ADDR(6'h09),
-	.PINMASK(8'b11111111),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PORT_OUT_ADDR('h2b),
+	.DDR_ADDR('h2a),
+	.PIN_ADDR('h29),
+	.PINMASK(8'b11011110),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b11111111)
+	.OUT_ENABLED_MASK(8'b11111101),
+	.INITIAL_OUTPUT_VALUE(8'b00001100)
 )pio_d(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pd_d_out),
+	.bus_out(dat_pd_d_out),
 
 	.io_in(pd_in),
 	.io_out(pd_out),
-	.pio_out_io_connect(piod_out_io_connect),
-	.debug()
+	.pio_out_io_connect(piod_out_io_connect)
 	);
 end
 else
 begin
-assign io_pd_d_out = 0;
+assign dat_pd_d_out = 0;
 end
 endgenerate
 /* !PORTD */
 
 /* PORTE */
-wire [7:0]io_pe_d_out;
+wire [7:0]dat_pe_d_out;
 generate
 if (USE_PIO_E == "TRUE")
 begin: PORTE
 atmega_pio # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.PORT_ADDR(6'h0e),
-	.DDR_ADDR(6'h0d),
-	.PIN_ADDR(6'h0c),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PORT_OUT_ADDR('h2e),
+	.DDR_ADDR('h2d),
+	.PIN_ADDR('h2c),
 	.PINMASK(8'b01000000),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
-	.INVERSE_MASK(8'b01000000),
+	.INVERSE_MASK(8'b00000000),
 	.OUT_ENABLED_MASK(8'b00000000)
 )pio_e(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pe_d_out),
+	.bus_out(dat_pe_d_out),
 
 	.io_in(pe_in),
 	.io_out(pe_out),
-	.pio_out_io_connect(pioe_out_io_connect),
-	.debug()
+	.pio_out_io_connect(pioe_out_io_connect)
 	);
 end
 else
 begin
-assign io_pe_d_out = 0;
+assign dat_pe_d_out = 0;
 end
 endgenerate
 /* !PORTE */
 
 /* PORTF */
-wire [7:0]io_pf_d_out;
+wire [7:0]dat_pf_d_out;
 generate
 if (USE_PIO_F == "TRUE")
 begin: PORTF
 atmega_pio # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.PORT_ADDR(6'h11),
-	.DDR_ADDR(6'h10),
-	.PIN_ADDR(6'h0f),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PORT_OUT_ADDR('h31),
+	.DDR_ADDR('h30),
+	.PIN_ADDR('h2f),
 	.PINMASK(8'b11110011),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
-	.INVERSE_MASK(8'b11110000),
+	.INVERSE_MASK(8'b00000000),
 	.OUT_ENABLED_MASK(8'b00000000)
 )pio_f(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pf_d_out),
+	.bus_out(dat_pf_d_out),
 
 	.io_in(pf_in),
 	.io_out(pf_out),
-	.pio_out_io_connect(piof_out_io_connect),
-	.debug()
+	.pio_out_io_connect(piof_out_io_connect)
 	);
 end
 else
 begin
-assign io_pf_d_out = 0;
+assign dat_pf_d_out = 0;
 end
 endgenerate
 /* !PORTF */
 
 /* SPI */
-wire [7:0]io_spi_d_out;
+wire [7:0]dat_spi_d_out;
 generate
 if (USE_SPI_1 == "TRUE")
 begin: SPI_DISPLAY
 atmega_spi_m # (
-	.PLATFORM(`PLATFORM),
-	.BUS_ADDR_IO_LEN(6),
-	.SPCR_ADDR(6'h2c),
-	.SPSR_ADDR(6'h2d),
-	.SPDR_ADDR(6'h2e),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.SPCR_ADDR('h4c),
+	.SPSR_ADDR('h4d),
+	.SPDR_ADDR('h4e),
 	.DINAMIC_BAUDRATE("TRUE"),
-	.BAUDRATE_DIVIDER(0)
+	.BAUDRATE_CNT_LEN(8),
+	.BAUDRATE_DIVIDER(0),
+	.USE_TX("TRUE"),
+	.USE_RX("TRUE")
 )spi(
-	.rst(rst),
-	.halt(halt_ack),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_spi_d_out),
+	.bus_out(dat_spi_d_out),
 	.int(int_spi_stc),
 	.int_rst(int_spi_stc_rst),
 	.io_connect(spi_io_connect),
@@ -716,44 +557,37 @@ atmega_spi_m # (
 end
 else
 begin
-assign io_spi_d_out = 0;
+assign dat_spi_d_out = 0;
 assign int_spi_stc = 1'b0;
 assign spi_io_connect = 1'b0;
 end
 endgenerate
 /* !SPI */
 /* UART */
-wire [7:0]io_uart0_d_out;
 wire [7:0]dat_uart0_d_out;
 generate
 if (USE_UART_1 == "TRUE")
 begin: UART1
 atmega_uart # (
-	.PLATFORM("XILINX"),
-	.BUS_ADDR_IO_LEN(6),
+	.PLATFORM(PLATFORM),
 	.BUS_ADDR_DATA_LEN(8),
 	.UDR_ADDR('hce),
 	.UCSRA_ADDR('hc8),
 	.UCSRB_ADDR('hc9),
 	.UCSRC_ADDR('hca),
-	.UCSRD_ADDR('h00),
 	.UBRRL_ADDR('hcc),
 	.UBRRH_ADDR('hcd),
 	.USE_TX("TRUE"),
 	.USE_RX("TRUE")
 	)uart(
-	.rst(rst),
-	.clk(clk),
-	.addr_io(io_addr),
-	.wr_io(io_write),
-	.rd_io(io_read),
-	.bus_io_in(io_out),
-	.bus_io_out(io_uart0_d_out),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_uart0_d_out),
+	.rst(io_rst),
+	.clk(core_clk),
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_uart0_d_out),
+	
 	.rxc_int(int_usart1_rx),
 	.rxc_int_rst(int_usart1_rx_rst),
 	.txc_int(int_usart1_tx),
@@ -768,8 +602,7 @@ atmega_uart # (
 end
 else
 begin
-assign io_uart0_d_out = 0;
-assign dat_uart0_d_out = 1'b0;
+assign dat_uart0_d_out = 8'h0;
 assign int_usart1_rx = 1'b0;
 assign int_usart1_tx = 1'b0;
 assign int_usart1_udre = 1'b0;
@@ -784,8 +617,8 @@ wire clk64;
 wire clk256;
 wire clk1024;
 tim_013_prescaller tim_013_prescaller_inst(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk8(clk8),
 	.clk64(clk64),
 	.clk256(clk256),
@@ -794,42 +627,36 @@ tim_013_prescaller tim_013_prescaller_inst(
 /* !TIMER PRESCALLER */
 
 /* TIMER 0 */
-wire [7:0]io_tim0_d_out;
 wire [7:0]dat_tim0_d_out;
 generate
 if (USE_TIMER_0 == "TRUE")
 begin:TIMER0
 atmega_tim_8bit # (
-	.PLATFORM("XILINX"),
+	.PLATFORM(PLATFORM),
 	.USE_OCRB("TRUE"),
-	.BUS_ADDR_IO_LEN(6),
 	.BUS_ADDR_DATA_LEN(8),
-	.GTCCR_ADDR('h23),
-	.TCCRA_ADDR('h24),
-	.TCCRB_ADDR('h25),
-	.TCNT_ADDR('h26),
-	.OCRA_ADDR('h27),
-	.OCRB_ADDR('h28),
+	.GTCCR_ADDR('h43),
+	.TCCRA_ADDR('h44),
+	.TCCRB_ADDR('h45),
+	.TCNT_ADDR('h46),
+	.OCRA_ADDR('h47),
+	.OCRB_ADDR('h48),
 	.TIMSK_ADDR('h6E),
-	.TIFR_ADDR('h15)
+	.TIFR_ADDR('h35),
+	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
 )tim_0(
-	.rst(rst),
-	.halt(halt_ack),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk8(clk8),
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_io(io_addr),
-	.wr_io(io_write),
-	.rd_io(io_read),
-	.bus_io_in(io_out),
-	.bus_io_out(io_tim0_d_out),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim0_d_out),
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_tim0_d_out),
+	
 	.tov_int(int_timer0_ovf),
 	.tov_int_rst(int_timer0_ovf_rst),
 	.ocra_int(int_timer0_compa),
@@ -846,7 +673,6 @@ atmega_tim_8bit # (
 end
 else
 begin
-assign io_tim0_d_out = 0;
 assign dat_tim0_d_out = 0;
 assign int_timer0_ovf = 1'b0;
 assign int_timer0_compa = 1'b0;
@@ -857,23 +683,20 @@ endgenerate
 /* !TIMER 0 */
 
 /* TIMER 1 */
-wire [7:0]io_tim1_d_out;
 wire [7:0]dat_tim1_d_out;
 generate
 if (USE_TIMER_1 == "TRUE")
 begin: TIMER1
 atmega_tim_16bit # (
-	.PLATFORM("XILINX"),
+	.PLATFORM(PLATFORM),
 	.USE_OCRB("TRUE"),
 	.USE_OCRC("TRUE"),
 	.USE_OCRD("FALSE"),
-	.BUS_ADDR_IO_LEN(6),
 	.BUS_ADDR_DATA_LEN(8),
-	.GTCCR_ADDR('h23),
+	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h80),
 	.TCCRB_ADDR('h81),
 	.TCCRC_ADDR('h82),
-	.TCCRD_ADDR('h0),
 	.TCNTL_ADDR('h84),
 	.TCNTH_ADDR('h85),
 	.ICRL_ADDR('h86),
@@ -884,28 +707,22 @@ atmega_tim_16bit # (
 	.OCRBH_ADDR('h8B),
 	.OCRCL_ADDR('h8C),
 	.OCRCH_ADDR('h8D),
-	.OCRDL_ADDR('h0),
-	.OCRDH_ADDR('h0),
 	.TIMSK_ADDR('h6F),
-	.TIFR_ADDR('h16)
+	.TIFR_ADDR('h36),
+	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
 )tim_1(
-	.rst(rst),
-	.halt(halt_ack),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk8(clk8),
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_io(io_addr),
-	.wr_io(io_write),
-	.rd_io(io_read),
-	.bus_io_in(io_out),
-	.bus_io_out(io_tim1_d_out),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim1_d_out),
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_tim1_d_out),
+	
 	.tov_int(int_timer1_ovf),
 	.tov_int_rst(int_timer1_ovf_rst),
 	.ocra_int(int_timer1_compa),
@@ -930,30 +747,26 @@ atmega_tim_16bit # (
 end
 else
 begin
-assign io_tim1_d_out = 0;
 assign dat_tim1_d_out = 0;
 end
 endgenerate
 /* !TIMER 1 */
 
 /* TIMER 3 */
-wire [7:0]io_tim3_d_out;
 wire [7:0]dat_tim3_d_out;
 generate
 if (USE_TIMER_3 == "TRUE")
 begin: TIMER3
 atmega_tim_16bit # (
-	.PLATFORM("XILINX"),
+	.PLATFORM(PLATFORM),
 	.USE_OCRB("FALSE"),
 	.USE_OCRC("FALSE"),
 	.USE_OCRD("FALSE"),
-	.BUS_ADDR_IO_LEN(6),
 	.BUS_ADDR_DATA_LEN(8),
-	.GTCCR_ADDR('h23),
+	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h90),
 	.TCCRB_ADDR('h91),
 	.TCCRC_ADDR('h92),
-	.TCCRD_ADDR('h0),
 	.TCNTL_ADDR('h94),
 	.TCNTH_ADDR('h95),
 	.ICRL_ADDR('h96),
@@ -964,28 +777,22 @@ atmega_tim_16bit # (
 	.OCRBH_ADDR('h9B),
 	.OCRCL_ADDR('h9C),
 	.OCRCH_ADDR('h9D),
-	.OCRDL_ADDR('h0),
-	.OCRDH_ADDR('h0),
 	.TIMSK_ADDR('h71),
-	.TIFR_ADDR('h18)
+	.TIFR_ADDR('h38),
+	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
 )tim_3(
-	.rst(rst),
-	.halt(halt_ack),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk8(clk8),
 	.clk64(clk64),
 	.clk256(clk256),
 	.clk1024(clk1024),
-	.addr_io(io_addr),
-	.wr_io(io_write),
-	.rd_io(io_read),
-	.bus_io_in(io_out),
-	.bus_io_out(io_tim3_d_out),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim3_d_out),
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_tim3_d_out),
+	
 	.tov_int(int_timer3_ovf),
 	.tov_int_rst(int_timer3_ovf_rst),
 	.ocra_int(int_timer3_compa),
@@ -1010,32 +817,32 @@ atmega_tim_16bit # (
 end
 else
 begin
-assign io_tim3_d_out = 0;
 assign dat_tim3_d_out = 0;
 end
 endgenerate
 /* !TIMER 3 */
 
 /* PLL */
-wire [7:0]io_pll_d_out;
+wire [7:0]dat_pll_d_out;
 generate
 if(USE_PLL == "TRUE")
 begin: PLL
 atmega_pll # (
-	.PLATFORM("XILINX"),
-	.BUS_ADDR_DATA_LEN(6),
-	.PLLCSR_ADDR('h29),
-	.PLLFRQ_ADDR('h32),
-	.USE_PLL("FALSE")
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.PLLCSR_ADDR('h49),
+	.PLLFRQ_ADDR('h52),
+	.USE_PLL(USE_PLL_HI_FREQ)
 )pll(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk_pll(clk_pll),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_pll_d_out),
+	.bus_out(dat_pll_d_out),
+	
 	.pll_enabled(pll_enabled),
 
 	.usb_ck_out(usb_ck_out),
@@ -1044,23 +851,21 @@ atmega_pll # (
 end
 else
 begin
-	assign io_pll_d_out = 0;
+	assign dat_pll_d_out = 0;
 end
 endgenerate
 /* !PLL */
 
 /* TIMER 4 */
-wire [7:0]io_tim4_d_out;
 wire [7:0]dat_tim4_d_out;
 generate
 if (USE_TIMER_4 == "TRUE")
 begin: TIMER4
 atmega_tim_10bit # (
-	.PLATFORM("XILINX"),
+	.PLATFORM(PLATFORM),
 	.USE_OCRA("TRUE"),
-	.USE_OCRB("TRUE"),
-	.USE_OCRD("TRUE"),
-	.BUS_ADDR_IO_LEN(6),
+	.USE_OCRB("FALSE"),
+	.USE_OCRD("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.TCCRA_ADDR('hc0),
 	.TCCRB_ADDR('hc1),
@@ -1074,23 +879,19 @@ atmega_tim_10bit # (
 	.OCRC_ADDR('hd1),
 	.OCRD_ADDR('hd2),
 	.TIMSK_ADDR('h72),
-	.TIFR_ADDR('h19)
+	.TIFR_ADDR('h39),
+	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
 )tim_4(
-	.rst(rst),
-	.halt(halt_ack),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.clk_pll(tim_ck_out),
 	.pll_enabled(pll_enabled),
-	.addr_io(io_addr),
-	.wr_io(io_write),
-	.rd_io(io_read),
-	.bus_io_in(io_out),
-	.bus_io_out(io_tim4_d_out),
-	.addr_dat(data_addr[7:0]),
-	.wr_dat(data_write & ~ram_sel),
-	.rd_dat(data_read & ~ram_sel),
-	.bus_dat_in(core_data_out),
-	.bus_dat_out(dat_tim4_d_out),
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_tim4_d_out),
+	
 	.tov_int(int_timer4_ovf),
 	.tov_int_rst(int_timer4_ovf_rst),
 	.ocra_int(int_timer4_compa),
@@ -1119,188 +920,276 @@ atmega_tim_10bit # (
 end
 else
 begin
-assign io_tim4_d_out = 0;
 assign dat_tim4_d_out = 0;
 end
 endgenerate
 /* !TIMER 4 */
 
 /* EEPROM */
-wire [7:0]io_eeprom_d_out;
+wire [7:0]dat_eeprom_d_out;
+wire eep_content_modifyed;
 generate
 if (USE_EEPROM == "TRUE")
 begin: EEPROM
 atmega_eep # (
-	.PLATFORM("XILINX"),
-	.BUS_ADDR_IO_LEN(6),
-	.EEARH_ADDR('h22),
-	.EEARL_ADDR('h21),
-	.EEDR_ADDR('h20),
-	.EECR_ADDR('h1F),
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.EEARH_ADDR('h42),
+	.EEARL_ADDR('h41),
+	.EEDR_ADDR('h40),
+	.EECR_ADDR('h3F),
 	.EEP_SIZE(1024)
 )eep(
-	.rst(rst),
-	.clk(clk),
+	.rst(io_rst),
+	.clk(core_clk),
 	.addr(io_addr),
 	.wr(io_write),
 	.rd(io_read),
 	.bus_in(io_out),
-	.bus_out(io_eeprom_d_out),
+	.bus_out(dat_eeprom_d_out),
+	
 	.int(int_ee_ready),
 	.int_rst(int_ee_ready_rst),
-	.ext_load_read_eep_addr(ext_eep_addr),
-	.ext_eep_data_in(ext_eep_data_in),
-	.ext_eep_data_wr(ext_eep_data_wr),
-	.ext_eep_data_out(ext_eep_data_out),
-	.ext_eep_data_rd(ext_eep_data_rd),
-	.ext_eep_data_en(ext_eep_data_en),
+
+	.ext_eep_addr(),
+	.ext_eep_data_in(),
+	.ext_eep_data_wr(),
+	.ext_eep_data_out(),
+	.ext_eep_data_rd(),
+	.ext_eep_data_en(),
+
 	.content_modifyed(eep_content_modifyed),
 	.debug()
 	);
 end
 else
 begin
-assign io_eeprom_d_out = 0;
+assign dat_eeprom_d_out = 0;
 end
 endgenerate
 /* !EEPROM */
 
-/* ROM APP */
-wire [`ROM_ADDR_WIDTH-1:0]pgm_addr_core;
-mega_ram  #(
-.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH),
-.DATA_BUS_WIDTH(16),
-.RAM_PATH(ROM_PATH)
-)rom(
+/* RNG as ADC */
+wire [7:0]dat_adc_d_out;
+generate
+if(USE_RNG_AS_ADC == "TRUE")
+begin: RNG_AS_ADC
+atmega_rng_as_adc # (
+	.PLATFORM("XILINX"),
+	.BUS_ADDR_DATA_LEN(8),
+	.RNG_BIT_NR(10),
+	.ADCL_ADDR('h78),
+	.ADCH_ADDR('h79),
+	.ADCSRA_ADDR('h7A),
+	.ADCSRB_ADDR('h7B),
+	.ADMUX_ADDR('h7C)
+)adc(
+	.rst(io_rst),
 	.clk(core_clk),
-	.re(ext_pgm_data_en ? ext_pgm_data_rd : 1'b1),
-	.we(ext_pgm_data_en ? ext_pgm_data_wr : 1'b0),
-	.a(ext_pgm_data_en ? ext_pgm_addr : pgm_addr),
-	.d_in(ext_pgm_data_in),
-	.d_out(pgm_data)
-);
-/*assign ext_pgm_data_out = pgm_data;
+
+	.addr(io_addr),
+	.wr(io_write),
+	.rd(io_read),
+	.bus_in(io_out),
+	.bus_out(dat_adc_d_out)
+    );
+end
+else
+begin
+assign dat_adc_d_out = 0;
+end
+endgenerate
+/* !RNG as ADC */
+
+`define F_CNT_L_ADDR	3'h3
+`define F_CNT_H_ADDR	3'h4
+`define F_DATA_L_ADDR	3'h5
+`define F_DATA_H_ADDR	3'h6
+`define BOOT_STAT_ADDR	3'h7
+
+`define BOOT_STAT_FLASH_APP_NR		0
+`define BOOT_STAT_EEP_EDITED		1
+`define BOOT_STAT_BOOT_APP_RUNNING	2
+`define BOOT_STAT_APP_PGM_WR_EN		3
+`define BOOT_STAT_IO_RST			4
+
+
+reg [7:0]F_CNT_L;
+reg [7:0]F_CNT_H;
+reg [7:0]F_DATA_L;
+reg [7:0]F_DATA_H;
+reg [7:0]BOOT_STAT;
+
+reg [7:0]dat_boot_d_out;
+reg pgm_wr_en;
+
+always @ (posedge core_clk)
+begin
+	if(core_rst)
+	begin
+		F_CNT_L <= 8'h00;
+		F_CNT_H <= 8'h00;
+		F_DATA_L <= 8'h00;
+		F_DATA_H <= 8'h00;
+	end
+	else
+	begin
+		if(pgm_wr_en)
+			{F_CNT_H, F_CNT_L} <= {F_CNT_H, F_CNT_L} + 16'h0001;
+		pgm_wr_en <= 1'b0;
+		if(eep_content_modifyed)
+			BOOT_STAT[`BOOT_STAT_EEP_EDITED] <= 1'b1;
+		if(io_write & (&io_addr[7:3]))
+		begin
+			case(data_addr[2:0])
+				`F_CNT_L_ADDR: F_CNT_L <= io_out;
+				`F_CNT_H_ADDR: F_CNT_H <= io_out;
+				`F_DATA_L_ADDR: F_DATA_L <= io_out;
+				`F_DATA_H_ADDR: 
+				begin
+					F_DATA_H <= io_out;
+					pgm_wr_en <= 1'b1;
+				end
+				`BOOT_STAT_ADDR: BOOT_STAT <= io_out;
+			endcase
+		end
+	end
+	if(dev_rst)
+		BOOT_STAT <= 8'h00;
+end
+
+always @ *
+begin
+	dat_boot_d_out = 8'h00;
+	if(io_read & (&io_addr[7:3]))
+	begin
+		case(io_addr[2:0])
+			`BOOT_STAT_ADDR: dat_boot_d_out = BOOT_STAT;
+		endcase
+	end
+end
+ 
+assign io_rst = BOOT_STAT[`BOOT_STAT_IO_RST] | core_rst;
+
+
+/* BOOT APP */
+reg boot_rom_select_del;
+
+always @ (posedge core_clk) boot_rom_select_del <= boot_rom_select;
+ 
+wire [15:0]pgm_data_boot;
 mega_rom  #(
-.ADDR_ROM_BUS_WIDTH(`ROM_ADDR_WIDTH),
-.ROM_PATH(ROM_PATH)
+	.PLATFORM(PLATFORM),
+	.ADDR_ROM_BUS_WIDTH(`BOOT_ADDR_WIDTH),
+	.ROM_PATH(ROM_PATH)
 )rom(
 	.clk(core_clk),
-	.a(pgm_addr),
-	.d(pgm_data)
-);*/
+	.a(pgm_addr[9:0]),
+	.cs(boot_rom_select_del),
+	.d(pgm_data_boot)
+);
+ 
+/* ROM APP */
+
+wire [15:0]pgm_data_app;
+mega_ram  #(
+	.PLATFORM(PLATFORM),
+	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
+	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH(2 ** `ROM_ADDR_WIDTH),
+	.DATA_BUS_WIDTH(16),
+	.RAM_PATH(ROM_PATH)
+)rom_app(
+	.clk(core_clk),
+	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
+	.re(1'b1),
+	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
+	.a(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[5:0], F_CNT_L}: pgm_addr[13:0]),
+	.d_in({F_DATA_H, F_DATA_L}),
+	.d_out(pgm_data_app)
+);
 /* !ROM APP */
+/* !BOOT APP */
+assign pgm_data = (BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? 16'h0 : pgm_data_app) | pgm_data_boot;
 
 /* RAM */
 wire [7:0]ram_bus_out;
 mega_ram  #(
-.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
-.RAM_PATH("")
+	.PLATFORM(PLATFORM),
+	.MEM_MODE("BLOCK"), // "BLOCK","SRAM"
+	.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH('hA00 + 'h200),
+	.DATA_BUS_WIDTH(8),
+	.RAM_PATH("")
 )ram(
 	.clk(core_clk),
-	.re(data_read & ram_sel),
-	.we(data_write & ram_sel),
-	.a(data_addr[`RAM_ADDR_WIDTH-1:0] - 'h100),
+	.cs(ram_sel),
+	.re(data_read),
+	.we(data_write),
+	.a(data_addr[`RAM_ADDR_WIDTH-1:0] - `RESERVED_RAM_FOR_IO),
 	.d_in(core_data_out),
 	.d_out(ram_bus_out)
 );
 /* !RAM */
 
-/* IO BUS IN DEMULTIPLEXER */
-io_bus_dmux #(
-	.NR_OF_BUSSES_IN(14)
-	)
-	io_bus_dmux_inst(
-	.bus_in({
-	io_ext_in,
-	io_pb_d_out,
-	io_pc_d_out,
-	io_pd_d_out,
-	io_pe_d_out,
-	io_pf_d_out,
-	io_spi_d_out,
-	io_tim0_d_out,
-	io_tim1_d_out,
-	io_tim3_d_out,
-	io_tim4_d_out,
-	io_pll_d_out,
-	io_eeprom_d_out,
-	io_uart0_d_out
-	}),
-	.bus_out(io_in)
-	);
-/* !IO BUS IN DEMULTIPLEXER */
-
 /* DATA BUS IN DEMULTIPLEXER */
 io_bus_dmux #(
-	.NR_OF_BUSSES_IN(6)
+	.NR_OF_BUSSES_IN(18)// Seems that adding one more input, it will use ~50 LUT less.
 	)
 	ram_bus_dmux_inst(
 	.bus_in({
+	dat_boot_d_out,
+	io_in, 
 	ram_bus_out,
+	dat_pb_d_out,
+	dat_pc_d_out,
+	dat_pd_d_out,
+	dat_pe_d_out,
+	dat_pf_d_out,
+	dat_spi_d_out,
 	dat_tim0_d_out,
 	dat_tim1_d_out,
 	dat_tim3_d_out,
 	dat_tim4_d_out,
-	dat_uart0_d_out
+	dat_pll_d_out,
+	dat_eeprom_d_out,
+	dat_uart0_d_out,
+	dat_adc_d_out
 	}),
 	.bus_out(core_data_in)
 	);
 /* !DATA BUS IN DEMULTIPLEXER */
 
 /* ATMEGA CORE */
-wire [`BUS_ADDR_DATA_LEN-1:0]data_addr_core;
-wire [7:0]core_data_out_core;
-wire data_write_core;
-wire data_read_core;
-assign data_write = ext_ram_data_en ? ext_ram_data_wr : data_write_core;
-assign data_read = ext_ram_data_en ? ext_ram_data_rd : data_read_core;
-assign data_addr = ext_ram_data_en ? ext_ram_addr : data_addr_core;
-assign core_data_out = ext_ram_data_en ? ext_ram_data_in : core_data_out_core;
-assign ext_ram_data_out = core_data_in;
-
-wire [5:0]io_addr_core;
-wire [7:0]io_out_core;
-wire io_write_core;
-wire io_read_core;
-assign io_write = ext_io_data_en ? ext_io_data_wr : io_write_core;
-assign io_read = ext_io_data_en ? ext_io_data_rd : io_read_core;
-assign io_addr = ext_io_data_en ? ext_io_addr : io_addr_core;
-assign io_out = ext_io_data_en ? ext_io_data_in : io_out_core;
-assign ext_io_data_out = io_in;
 
 mega # (
-	.PLATFORM(`PLATFORM),
+	.PLATFORM(PLATFORM),
 	.CORE_TYPE(`CORE_TYPE),
-	.ROM_ADDR_WIDTH(`ROM_ADDR_WIDTH),
+	.BOOT_ADDR(BOOT_ADDR),
+	.ROM_ADDR_WIDTH(16),
 	.RAM_ADDR_WIDTH(`BUS_ADDR_DATA_LEN),
 	.WATCHDOG_CNT_WIDTH(`WATCHDOG_CNT_WIDTH),/* If is 0 the watchdog is disabled */
-	.VECTOR_INT_TABLE_SIZE(`VECTOR_INT_TABLE_SIZE)/* If is 0 the interrupt module is disabled */
+	.VECTOR_INT_TABLE_SIZE(`VECTOR_INT_TABLE_SIZE),/* If is 0 the interrupt module is disabled */
+	.NMI_VECTOR(16'hFC01),
+	.REGS_REGISTERED(REGS_REGISTERED),
+	.COMASATE_MUL(COMASATE_MUL)
 	)atmega32u4_inst(
-	.rst(rst),
+	.rst(core_rst),
 	.sys_rst_out(wdt_rst),
 	// Core clock.
 	.clk(core_clk),
 	// Watchdog clock input that can be different from the core clock.
 	.clk_wdt(core_clk),
-	// Used to halt the core.
-	.halt(halt),
-	.halt_ack(halt_ack),
 	// FLASH space data interface.
 	.pgm_addr(pgm_addr),
 	.pgm_data(pgm_data),
 	// RAM space data interface.
-	.data_addr(data_addr_core),
-	.data_out(core_data_out_core),
-	.data_write(data_write_core),
+	.data_addr(data_addr),
+	.data_out(core_data_out),
+	.data_write(data_write),
 	.data_in(core_data_in),
-	.data_read(data_read_core),
-	// IO space data interface.
-	.io_addr(io_addr_core),
-	.io_out(io_out_core),
-	.io_write(io_write_core),
-	.io_in(io_in),
-	.io_read(io_read_core),
-	// Interrupt lines from all interfaces.
+	.data_read(data_read),
+	// Interrupt lines from all IO's.
 	.int_sig({
 	int_timer4_fpf, int_timer4_ovf, int_timer4_compd, int_timer4_compb, int_timer4_compa,
 	int_spm_ready,
@@ -1320,9 +1209,10 @@ mega # (
 	int_reserved3,
 	int_int6,
 	int_reserved1, int_reserved0,
-	int_int3, int_int2, int_int1, int_int0}
+	int_int3, int_int2, int_int1, int_int0,
+	nmi_sig}
 	),
-	// Interrupt reset lines going to all interfaces.
+	// Interrupt reset lines going to all IO's.
 	.int_rst({
 	int_timer4_fpf_rst, int_timer4_ovf_rst, int_timer4_compd_rst, int_timer4_compb_rst, int_timer4_compa_rst,
 	int_spm_ready_rst,
@@ -1342,7 +1232,8 @@ mega # (
 	int_reserved3_rst,
 	int_int6_rst,
 	int_reserved1_rst, int_reserved0_rst,
-	int_int3_rst, int_int2_rst, int_int1_rst, int_int0_rst}
+	int_int3_rst, int_int2_rst, int_int1_rst, int_int0_rst,
+	nmi_rst}
 	)
 );
 /* !ATMEGA CORE */

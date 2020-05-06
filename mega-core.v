@@ -147,14 +147,14 @@ endmodule
 module mega #(
 	parameter PLATFORM = "XILINX",
 	parameter BOOT_ADDR = 0,
-	parameter USE_HALT = "FALSE",
 	parameter CORE_TYPE = `MEGA_XMEGA_1,
 	parameter ROM_ADDR_WIDTH = 16,
 	parameter RAM_ADDR_WIDTH = 16,
 	parameter WATCHDOG_CNT_WIDTH = 0,
 	parameter VECTOR_INT_TABLE_SIZE = 0,
 	parameter NMI_VECTOR = 0,
-	parameter REGS_REGISTERED = "FALSE"
+	parameter REGS_REGISTERED = "FALSE",
+	parameter COMASATE_MUL = "FALSE"
 	)(
 	input rst,
 	output sys_rst_out,
@@ -489,7 +489,7 @@ begin
 				end
 				{1'b1, `STEP1, `INSTRUCTION_STS}:
 				begin
-					case(data_addr_int)
+					case(pgm_data_int)
 						24'h05F: SREG <= reg_rs1;
 					endcase
 				end
@@ -1036,7 +1036,9 @@ begin
 				{1'b1, `STEP0, `INSTRUCTION_LPM_R},
 				{1'b1, `STEP0, `INSTRUCTION_LPM_R_P},
 				{1'b1, `STEP0, `INSTRUCTION_LPM_ELPM}: state_cnt <= `STEP1;
+			endcase
 /*************************************************************/
+			casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
 				{1'b1, `STEP1, `INSTRUCTION_RET},
 				{1'b1, `STEP1, `INSTRUCTION_RETI}: state_cnt <= `STEP2;
 				{1'b1, `STEP1, `INSTRUCTION_CPSE}:
@@ -1087,7 +1089,9 @@ begin
 				{1'b1, `STEP1, `INSTRUCTION_LPM_R},
 				{1'b1, `STEP1, `INSTRUCTION_LPM_R_P},
 				{1'b1, `STEP1, `INSTRUCTION_LPM_ELPM}: state_cnt <= `STEP2;
+			endcase
 /*************************************************************/
+			casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
 				{1'b1, `STEP2, `INSTRUCTION_RET},
 				{1'b1, `STEP2, `INSTRUCTION_RETI},
 				{1'b1, `STEP2, `INSTRUCTION_CPSE},
@@ -1171,7 +1175,8 @@ end
 
 mega_alu #(
 	.PLATFORM(PLATFORM),
-	.CORE_TYPE(CORE_TYPE)
+	.CORE_TYPE(CORE_TYPE),
+	.COMASATE_MUL(COMASATE_MUL)
 )mega_alu_inst(
 	.inst(pgm_data_registered),
 	.rda(rs1a),

@@ -44,9 +44,9 @@ module mega_regs #
 generate
 if(PLATFORM == "XILINX" || PLATFORM == "iCE40UP")
 begin
-//(* ram_style="block" *)
+(* ram_style="block" *)
 reg [7:0]REGL[0:15];
-//(* ram_style="block" *)
+(* ram_style="block" *)
 reg [7:0]REGH[0:15];
 
 wire [3:0]rda_int = rda[4:1];

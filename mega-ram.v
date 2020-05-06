@@ -89,7 +89,7 @@ always@(posedge clk) begin
 end
 end/* MEM_MODE != "BLOCK" */
 else
-begin
+begin/* MEM_MODE == "SRAM" */
 
 always @ (*)
 begin
