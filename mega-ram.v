@@ -96,8 +96,12 @@ begin
 	addr = a;
 end
 
+reg delayed_a0;
+
+always @ (posedge clk) delayed_a0 = addr[0];
+
 SP256K  ramfn_inst1(
-	.DI(DATA_BUS_WIDTH == 8 ? (addr[0] ? {d_in[7:0], 8'h00} : {8'h00, d_in[7:0]}) : d_in),
+	.DI(DATA_BUS_WIDTH == 8 ? {d_in[7:0], d_in[7:0]} : d_in),
 	.AD(DATA_BUS_WIDTH == 8 ? addr[ADDR_BUS_WIDTH-1 : 1] : addr),
 	.MASKWE(DATA_BUS_WIDTH == 8 ? (addr[0] ? 4'b1100 : 4'b0011) : 4'b1111),
 	.WE(we),
@@ -109,7 +113,7 @@ SP256K  ramfn_inst1(
 	.DO(d_out_w)
 );
 
-assign d_out_w_b = DATA_BUS_WIDTH == 8 ? (addr[0] ? d_out_w[15:8] : d_out_w[7:0]) : d_out_w;
+assign d_out_w_b = DATA_BUS_WIDTH == 8 ? (delayed_a0 ? d_out_w[15:8] : d_out_w[7:0]) : d_out_w;
 
 always @ (*)
 begin
