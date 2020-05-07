@@ -99,10 +99,10 @@ end
 reg delayed_a0;
 
 always @ (posedge clk) delayed_a0 = addr[0];
-
+wire [13:0]ram_addr = DATA_BUS_WIDTH == 8 ? addr[ADDR_BUS_WIDTH-1 : 1] : addr;
 SP256K  ramfn_inst1(
 	.DI(DATA_BUS_WIDTH == 8 ? {d_in[7:0], d_in[7:0]} : d_in),
-	.AD(DATA_BUS_WIDTH == 8 ? addr[ADDR_BUS_WIDTH-1 : 1] : addr),
+	.AD(ram_addr),
 	.MASKWE(DATA_BUS_WIDTH == 8 ? (addr[0] ? 4'b1100 : 4'b0011) : 4'b1111),
 	.WE(we),
 	.CS(1'b1),
