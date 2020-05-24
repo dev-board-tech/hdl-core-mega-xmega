@@ -24,15 +24,15 @@
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
 `define CORE_TYPE				`MEGA_ENHANCED_128K
-`define ROM_ADDR_WIDTH			14
-`define BOOT_ADDR_WIDTH			10
-`define BUS_ADDR_DATA_LEN		12
-`define RAM_ADDR_WIDTH			12
-`define EEP_ADDR_WIDTH			10
-`define RESERVED_RAM_FOR_IO		12'h100
+`define ROM_ADDR_WIDTH			14 // 16K Words / 32K Bytes.
+`define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes.
+`define BUS_ADDR_DATA_LEN		12 // Max 8K Bytes.
+`define RAM_ADDR_WIDTH			12 // 8K Bytes.
+`define EEP_ADDR_WIDTH			10 // 1K Bytes.
+`define RESERVED_RAM_FOR_IO		12'h100 // Lowest 256 Bytes of RAM addresses are reserved for IO's.
 
 `define VECTOR_INT_TABLE_SIZE	43// 42 + NMI
-`define WATCHDOG_CNT_WIDTH		0//27
+`define WATCHDOG_CNT_WIDTH		0//27 // We do not use watchdog, is not a critical design and most of arduboy games does not use him.
 
 /* TIMMERS PRESCALLERS MODULE */
 module tim_013_prescaller (
@@ -501,7 +501,7 @@ endgenerate
 wire [7:0]dat_spi_d_out;
 generate
 if (USE_SPI_1 == "TRUE")
-begin: SPI_DISPLAY
+begin: SPI1
 atmega_spi_m # (
 	.PLATFORM(PLATFORM),
 	.BUS_ADDR_DATA_LEN(8),
