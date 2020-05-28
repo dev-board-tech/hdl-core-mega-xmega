@@ -218,7 +218,6 @@ assign VS_RST = pd_out[0];
 assign pd_in[1] = uSD_CD;
 assign uSD_CS = pd_out[2];
 assign ADC_CS = pd_out[3];
-
 assign OledDC = pd_out[4];
 assign VS_xDCS = pd_out[5];
 assign OledCS = pd_out[6];
@@ -338,7 +337,8 @@ atmega_pio # (
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b11101111)
+	.OUT_ENABLED_MASK(8'b11101111),
+	.INITIAL_OUTPUT_VALUE(8'b00000001)
 )pio_b(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -375,7 +375,8 @@ atmega_pio # (
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b11100000)
+	.OUT_ENABLED_MASK(8'b11100000),
+	.INITIAL_OUTPUT_VALUE(8'b00000000)
 )pio_c(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -413,7 +414,7 @@ atmega_pio # (
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
 	.OUT_ENABLED_MASK(8'b11111101),
-	.INITIAL_OUTPUT_VALUE(8'b00001100)
+	.INITIAL_OUTPUT_VALUE(8'b01111100)
 )pio_d(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -450,7 +451,8 @@ atmega_pio # (
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b00000000)
+	.OUT_ENABLED_MASK(8'b00000000),
+	.INITIAL_OUTPUT_VALUE(8'b00000000)
 )pio_e(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -487,7 +489,8 @@ atmega_pio # (
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b00000000)
+	.OUT_ENABLED_MASK(8'b00000000),
+	.INITIAL_OUTPUT_VALUE(8'b00000000)
 )pio_f(
 	.rst(io_rst),
 	.clk(core_clk),
