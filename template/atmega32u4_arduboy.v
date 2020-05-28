@@ -67,9 +67,10 @@ endmodule
 
 module atmega32u4_arduboy # (
 	parameter PLATFORM = "XILINX",
+	parameter BOOT_ADDR = 0,
+	parameter ARDU_FPGA_ICE40UP5K_GAME = "FALSE",
 	parameter REGS_REGISTERED = "FALSE",
 	parameter COMASATE_MUL = "FALSE",
-	parameter BOOT_ADDR = 0,
 	parameter ROM_PATH = "",
 	parameter USE_PIO_B = "TRUE",
 	parameter USE_PIO_C = "TRUE",
@@ -98,6 +99,8 @@ module atmega32u4_arduboy # (
     input [5:0] buttons,
     output [2:0] RGB,
     output Buzzer1, Buzzer2, OledDC, OledCS, OledRST, spi_scl, spi_mosi, uSD_CS, ADC_CS,
+	output VS_RST, VS_xCS, VS_xDCS,
+	input VS_DREQ,
 	input spi_miso,
 	input uSD_CD,
 	output uart_tx,
@@ -198,28 +201,37 @@ wire usb_ck_out;
 wire tim_ck_out;
 /* !IO ALTERNATIVE FUNCTION */
 
-assign pf_in[6] = buttons[0]; // BUTTON RIGHT
-assign pf_in[5] = buttons[1]; // BUTTON LEFT
-assign pf_in[4] = buttons[2]; // BUTTON DOWN
-assign pf_in[7] = buttons[3]; // BUTTON UP
-assign pe_in[6] = buttons[4]; // BUTTON A
+
+assign VS_xCS = pb_out[0];
+
 assign pb_in[4] = buttons[5]; // BUTTON B
 
 // RGB LED is common anode (ie. HIGH = OFF)
+assign RGB[0] = pb_out[5];
 assign RGB[2] = pb_out[6];
 assign RGB[1] = pb_out[7];
-assign RGB[0] = pb_out[5];
 
 assign Buzzer1 = tim4_ocan_io_connect ? ~tim4_oca : pc_out[6];
 assign Buzzer2 = tim4_ocap_io_connect ? tim4_oca : pc_out[7];
+
+assign VS_RST = pd_out[0];
+assign pd_in[1] = uSD_CD;
+assign uSD_CS = pd_out[2];
+assign ADC_CS = pd_out[3];
+
 assign OledDC = pd_out[4];
+assign VS_xDCS = pd_out[5];
 assign OledCS = pd_out[6];
 assign OledRST = pd_out[7];
 
-assign uSD_CS = pd_out[2];
-assign pd_in[1] = uSD_CD;
-assign ADC_CS = pd_out[3];
+assign pe_in[6] = buttons[4]; // BUTTON A
 
+assign pf_in[0] = VS_DREQ;
+
+assign pf_in[4] = buttons[2]; // BUTTON DOWN
+assign pf_in[5] = buttons[1]; // BUTTON LEFT
+assign pf_in[6] = buttons[0]; // BUTTON RIGHT
+assign pf_in[7] = buttons[3]; // BUTTON UP
 
 /* Interrupt wires */
 wire int_int0 = 0;
@@ -322,7 +334,7 @@ atmega_pio # (
 	.PORT_OUT_ADDR('h25),
 	.DDR_ADDR('h24),
 	.PIN_ADDR('h23),
-	.PINMASK(8'b11110000),
+	.PINMASK(8'b11110001),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
@@ -359,11 +371,11 @@ atmega_pio # (
 	.PORT_OUT_ADDR('h28),
 	.DDR_ADDR('h27),
 	.PIN_ADDR('h26),
-	.PINMASK(8'b11000000),
+	.PINMASK(8'b11100000),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b11000000)
+	.OUT_ENABLED_MASK(8'b11100000)
 )pio_c(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -396,7 +408,7 @@ atmega_pio # (
 	.PORT_OUT_ADDR('h2b),
 	.DDR_ADDR('h2a),
 	.PIN_ADDR('h29),
-	.PINMASK(8'b11011110),
+	.PINMASK(8'b11111111),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
@@ -471,7 +483,7 @@ atmega_pio # (
 	.PORT_OUT_ADDR('h31),
 	.DDR_ADDR('h30),
 	.PIN_ADDR('h2f),
-	.PINMASK(8'b11110011),
+	.PINMASK(8'b11110001),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
