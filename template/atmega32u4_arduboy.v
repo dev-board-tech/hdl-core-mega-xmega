@@ -24,10 +24,11 @@
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
 `define CORE_TYPE				`MEGA_ENHANCED_128K
-`define ROM_ADDR_WIDTH			14 // 16K Words / 32K Bytes.
+`define ROM_ADDR_WIDTH			15 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes.
 `define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes.
-`define BUS_ADDR_DATA_LEN		12 // Max 8K Bytes.
+`define BUS_ADDR_DATA_LEN		16 // Max 8K Bytes.
 `define RAM_ADDR_WIDTH			12 // 8K Bytes.
+`define RAM_TYPE				"SRAM"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
 `define EEP_ADDR_WIDTH			10 // 1K Bytes.
 `define RESERVED_RAM_FOR_IO		12'h100 // Lowest 256 Bytes of RAM addresses are reserved for IO's.
 
@@ -1003,6 +1004,7 @@ endgenerate
 `define BOOT_STAT_BOOT_APP_RUNNING	2
 `define BOOT_STAT_APP_PGM_WR_EN		3
 `define BOOT_STAT_IO_RST			4
+`define BOOT_STAT_DEBUG_EN			7
 
 
 reg [7:0]F_CNT_L;
@@ -1081,24 +1083,55 @@ mega_rom  #(
 );
  
 /* ROM APP */
-
+wire[`ROM_ADDR_WIDTH-1:0]rom_addr = BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[6:0], F_CNT_L}: pgm_addr[`ROM_ADDR_WIDTH-1:0];
+reg ram_cs_del;
+always @ (posedge clk) ram_cs_del <= rom_addr[14];
 wire [15:0]pgm_data_app;
+wire [15:0]pgm_data_app1;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
-	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH),
-	.ADDR_RAM_DEPTH(2 ** `ROM_ADDR_WIDTH),
+	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH == 15 ? 14: `ROM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH(2 ** (`ROM_ADDR_WIDTH == 15 ? 14: `ROM_ADDR_WIDTH)),
 	.DATA_BUS_WIDTH(16),
-	.RAM_PATH(ROM_PATH)
+	.RAM_PATH("")
 )rom_app(
 	.clk(core_clk),
 	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
-	.re(1'b1),
+	.re(`ROM_ADDR_WIDTH == 14 ? 1'b1 : ~ram_cs_del),
 	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
-	.a(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[5:0], F_CNT_L}: pgm_addr[13:0]),
+	.a(rom_addr[13:0]),
 	.d_in({F_DATA_H, F_DATA_L}),
-	.d_out(pgm_data_app)
+	.d_out(pgm_data_app1)
 );
+
+wire [15:0]pgm_data_app2;
+generate
+if(`ROM_ADDR_WIDTH == 15)
+begin// 64KB of ROM/32KWords of ROM
+mega_ram  #(
+	.PLATFORM(PLATFORM),
+	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
+	.ADDR_BUS_WIDTH(14),
+	.ADDR_RAM_DEPTH(2 ** 14),
+	.DATA_BUS_WIDTH(16),
+	.RAM_PATH("")
+)rom_app2(
+	.clk(core_clk),
+	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
+	.re(ram_cs_del),
+	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
+	.a(rom_addr[13:0]),
+	.d_in({F_DATA_H, F_DATA_L}),
+	.d_out(pgm_data_app2)
+);
+assign pgm_data_app = pgm_data_app1 | pgm_data_app2;
+end
+else
+begin
+assign pgm_data_app = pgm_data_app1;
+end
+endgenerate
 /* !ROM APP */
 /* !BOOT APP */
 assign pgm_data = (BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? 16'h0 : pgm_data_app) | pgm_data_boot;
@@ -1107,7 +1140,7 @@ assign pgm_data = (BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? 16'h0 : pgm_data_app) |
 wire [7:0]ram_bus_out;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
-	.MEM_MODE("BLOCK"), // "BLOCK","SRAM"
+	.MEM_MODE(`RAM_TYPE),
 	.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
 	.ADDR_RAM_DEPTH('hA00 + 'h200),
 	.DATA_BUS_WIDTH(8),
@@ -1125,7 +1158,7 @@ mega_ram  #(
 
 /* DATA BUS IN DEMULTIPLEXER */
 io_bus_dmux #(
-	.NR_OF_BUSSES_IN(18)// Seems that adding one more input, it will use ~50 LUT less.
+	.NR_OF_BUSSES_IN(17)
 	)
 	ram_bus_dmux_inst(
 	.bus_in({
