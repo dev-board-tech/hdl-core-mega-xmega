@@ -24,11 +24,11 @@
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
 `define CORE_TYPE				`MEGA_ENHANCED_128K
-`define ROM_ADDR_WIDTH			15 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes.
+`define ROM_ADDR_WIDTH			14 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes.
 `define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes.
-`define BUS_ADDR_DATA_LEN		16 // Max 8K Bytes.
-`define RAM_ADDR_WIDTH			12 // 8K Bytes.
-`define RAM_TYPE				"SRAM"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
+`define BUS_ADDR_DATA_LEN		12 // Max 4K Bytes.
+`define RAM_ADDR_WIDTH			12 // 4K Bytes.
+`define RAM_TYPE				"BLOCK"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
 `define EEP_ADDR_WIDTH			10 // 1K Bytes.
 `define RESERVED_RAM_FOR_IO		12'h100 // Lowest 256 Bytes of RAM addresses are reserved for IO's.
 
