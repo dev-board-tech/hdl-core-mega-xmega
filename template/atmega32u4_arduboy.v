@@ -93,7 +93,6 @@ module atmega32u4_arduboy # (
 	input core_rst,
 	input dev_rst,
 	input clk,
-	input clk_io,
 	input clk_pll,
 	input nmi_sig,
 	output nmi_rst,

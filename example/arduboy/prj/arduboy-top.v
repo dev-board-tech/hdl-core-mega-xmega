@@ -20,8 +20,12 @@
 
 `timescale 1ns / 1ps
 
+`define REV							"1.0"
+
+`define COMASATE_MUL				"TRUE"
+
 `define PLATFORM				"XILINX"
-`define FLASH_ROM_FILE_NAME		"Breakout-v.Division"
+`define FLASH_ROM_FILE_NAME		"l1_boot_ld"
 
 `define USE_PIO_A	"FALSE"
 `define USE_SPI_2	"FALSE"
@@ -276,10 +280,11 @@ wire io_read;
 wire nmi_sig = 0;
 
 atmega32u4_arduboy # (
-	.ROM_PATH(`FLASH_ROM_FILE_NAME),
-	//.BOOT_ADDR(16'hFC00),
+	.PLATFORM(`PLATFORM),
+	.BOOT_ADDR(16'hFC00),
+	.ARDU_FPGA_ICE40UP5K_GAME("FALSE"),
 	.REGS_REGISTERED("FALSE"),
-	.USE_HALT("FALSE"),
+	.ROM_PATH(`FLASH_ROM_FILE_NAME),
 	.USE_PIO_B("TRUE"),
 	.USE_PIO_C("TRUE"),
 	.USE_PIO_D("TRUE"),
@@ -292,11 +297,14 @@ atmega32u4_arduboy # (
 	.USE_TIMER_3("TRUE"),
 	.USE_TIMER_4("TRUE"),
 	.USE_SPI_1("TRUE"),
-	.USE_UART_1("FALSE"),
+	.USE_UART_1("TRUE"),
 	.USE_EEPROM("TRUE"),
-	.USE_RNG_AS_ADC("TRUE")
+	.USE_RNG_AS_ADC("TRUE"),
+	.TIMER_INCREMENT_VALUE(1),
+	.COMASATE_MUL(`COMASATE_MUL)
 ) atmega32u4_arduboy_inst (
-	.rst(sys_rst),
+	.core_rst(sys_rst),
+	.dev_rst(sys_rst),
 	.clk(sys_clk),
 	.clk_pll(pll_clk),
 	.nmi_sig(nmi_sig),
@@ -312,15 +320,11 @@ atmega32u4_arduboy # (
     .spi_scl(ja[2]),
     .spi_mosi(ja[1]),
 
-	.eep_content_modifyed(eep_content_modifyed),
-	
-	.ram_addr(io_addr),
-	.ram_out(io_out),
-	.ram_write(io_write),
-	.ram_in(io_in),
-	.ram_read(io_read),
-
-	.debug(debug)
+	.io_addr(io_addr),
+	.io_out(io_out),
+	.io_write(io_write),
+	.io_in(io_in),
+	.io_read(io_read)
 );
 
 assign LED[3:0] = {ld2, ld1, ld0};

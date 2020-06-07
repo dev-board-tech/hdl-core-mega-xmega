@@ -215,9 +215,12 @@ reg [15:0]reg_rd;
 reg reg_rdw;
 reg reg_rdm;
 
+reg reg_rs2_b0;
+
 reg skip_next_clock;
 
 reg [7:0]PC_TMP_H;
+reg [7:0]PC_TMP_H_RET_I;
 
 wire [ROM_ADDR_WIDTH - 1:0]PC_PLUS_ONE = PC + 1;
 wire [ROM_ADDR_WIDTH - 1:0]PC_MINUS_ONE = PC - 1;
@@ -225,10 +228,9 @@ wire [RAM_ADDR_WIDTH - 1:0]SP_PLUS_ONE = SP + 1;
 reg [ROM_ADDR_WIDTH - 1:0]PC_PLUS_RJMP_RCALL;
 reg [ROM_ADDR_WIDTH - 1:0]PC_PLUS_COND_BRANCH;
 
-reg cnt_rst;
 reg unlock_int_registered_step_2;
 
-wire execute	= (~skip_next_clock & ~cnt_rst);
+wire execute	= (~skip_next_clock);
 
 /**************** Interrupt instance  ********************/
 localparam int_bus_size = (VECTOR_INT_TABLE_SIZE > 127) ? 8 :
@@ -260,21 +262,26 @@ reg [1:0]last_state;
 /*
  * Interrupt registration and CALL to vector table instruction inserter.
  */
+always @ (posedge clk)
+begin
+	current_int_vect_registered <= current_int_vect_request;
+end
+
 always @ *
 begin
 	pgm_data_int = pgm_data;
 	int_registered = 1'b0;
-	int_rst = 1'b0;
+	int_rst = 0;
 	if(VECTOR_INT_TABLE_SIZE != 0)
 	begin
-		if(&{~skip_next_clock, ~cnt_rst})
+		if(&{~skip_next_clock})
 		begin
 			case({unlock_int_registered_step_2, int_request, sreg_out[`XMEGA_FLAG_I], state_cnt})
 				{3'b011, `STEP0}: 
 				begin
 					//if(~|last_state)
 					//begin
-					current_int_vect_registered = current_int_vect_request;
+					//current_int_vect_registered = current_int_vect_request;
 					pgm_data_int = 16'b1001010000001110;
 					int_registered = 1'b1;
 					int_rst = 1'b1 << (current_int_vect_request - 1);
@@ -299,7 +306,7 @@ end
  */
 always @ (posedge clk)
 begin
-	if(cnt_rst)
+	if(core_rst)
 	begin
 		if(ROM_ADDR_WIDTH > 16)
 		begin
@@ -399,7 +406,7 @@ begin
 		{1'b1, `STEP0, `INSTRUCTION_IN}: reg_rd = data_in_int;
 		{1'b1, `STEP2, `INSTRUCTION_LPM_R},
 		{1'b1, `STEP2, `INSTRUCTION_LPM_ELPM}: reg_rd = reg_rs2[0] ? pgm_data_int[15:8] : pgm_data_int[7:0];
-		{1'b1, `STEP2, `INSTRUCTION_LPM_R_P}: reg_rd = ~reg_rs2[0] ? pgm_data_int[15:8] : pgm_data_int[7:0];
+		{1'b1, `STEP2, `INSTRUCTION_LPM_R_P}: reg_rd = reg_rs2_b0 ? pgm_data_int[15:8] : pgm_data_int[7:0];
 		default: reg_rd = alu_rd;
 	endcase
 /* Set "pgm_addr" */ /*************************************************************/
@@ -426,38 +433,39 @@ initial begin
 	int_rst = 1'b0;
 end
 
-always @ (posedge clk or posedge core_rst)
+reg pgm_dat_rst;
+
+always @ (posedge clk/* or posedge core_rst*/)
 begin
 	if(core_rst)
 	begin
-		cnt_rst = 1'b1;
+		pgm_dat_rst = 1'b0;
 		PC <= BOOT_ADDR;
 		state_cnt <= `STEP0;
 		//SP <= 8'h00;
-		//SREG <= 8'h00;
+		SREG <= 8'h00;
 		//data_addr_int <= 'h00000000;
 		//data_out_int <= 8'h00;
-		//io_addr_int <= 6'h00;
-		//io_out_int = 8'h00;
 		//PC_TMP_H <= 8'h00;
+		pgm_data_registered = 16'h0000;
 	end
 	else
 	begin
+		if(~pgm_dat_rst)
+		begin
+			pgm_dat_rst <= 1'b1;
+			pgm_data_registered = 16'h0000;
+		end
 		data_write_int <= 1'b0;
 		data_read_int <= 1'b0;
 		reg_rdw <= 1'b0;
 		skip_next_clock <= 1'b0;
 		PC <= PC_PLUS_ONE;
+		reg_rs2_b0 <= reg_rs2[0];
+		PC_TMP_H_RET_I <= data_in_int;
 		//data_addr_int <= 'h00000000;
 		//data_out_int <= 8'h00;
-		//io_addr_int <= 6'h00;
-		//io_out_int = 8'h00;
-		if(cnt_rst)
-		begin
-			cnt_rst = 1'b0;
-			pgm_data_registered = 16'h0000;
-		end
-		else if(&{state_cnt == `STEP0, ~skip_next_clock})
+		if(&{state_cnt == `STEP0, ~skip_next_clock})
 			pgm_data_registered = pgm_data_int;
 		unlock_int_registered_step_2 <= 1'b0;
 		rs2a <= {pgm_data_registered[9], pgm_data_registered[3:0]};
@@ -471,7 +479,7 @@ begin
 /* Set "Interrupt flag reset & unlock CALL address insert" */ /*************************************************************/
 		if(VECTOR_INT_TABLE_SIZE != 0 & int_registered)
 			unlock_int_registered_step_2 <= 1'b1;
-		if(&{~skip_next_clock, ~cnt_rst})
+		if(~skip_next_clock & pgm_dat_rst)
 		begin
 			last_state <= state_cnt;
 /* Set "Load default registers state if othervice is not specifyed" */ /*************************************************************/
@@ -811,7 +819,7 @@ begin
 				{1'b1, `STEP2, `INSTRUCTION_RET},
 				{1'b1, `STEP2, `INSTRUCTION_RETI}: data_addr_int <= SP;
 				{1'b1, `STEP0, `INSTRUCTION_POP}: data_addr_int <= SP_PLUS_ONE;
-				{1'b1, `STEP1, `INSTRUCTION_POP}: data_addr_int <= SP;
+				//{1'b1, `STEP1, `INSTRUCTION_POP}: data_addr_int <= SP;
 				{1'b1, `STEP1, `INSTRUCTION_LDS}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -819,9 +827,7 @@ begin
 					else
 						data_addr_int <= pgm_data_int;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LDS}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP0, `INSTRUCTION_LDS16}: data_addr_int <= {pgm_data_registered[10:8], pgm_data_registered[3:0]};
-				{1'b1, `STEP1, `INSTRUCTION_LDS16}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_STS}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -837,7 +843,6 @@ begin
 					else
 						data_addr_int <= reg_rs2 + {pgm_data_registered[13], pgm_data_registered[11:10], pgm_data_registered[2:0]};
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LDD}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_STD}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -852,7 +857,6 @@ begin
 					else
 						data_addr_int <= reg_rs2;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LD_YZP}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_ST_YZP}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -867,7 +871,6 @@ begin
 					else
 						data_addr_int <= reg_rs2 - 1;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LD_YZN}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_ST_YZN}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -875,7 +878,6 @@ begin
 					else
 						data_addr_int <= reg_rs2 - 1;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_ST_YZN}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_LD_X}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -883,7 +885,6 @@ begin
 					else
 						data_addr_int <= reg_rs2;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LD_X}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_ST_X}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -898,7 +899,6 @@ begin
 					else
 						data_addr_int <= reg_rs2;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LD_XP}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_ST_XP}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -913,7 +913,6 @@ begin
 					else
 						data_addr_int <= reg_rs2 - 1;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_LD_XN}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_ST_XN}: 
 				begin
 					if(ROM_ADDR_WIDTH > 16) 
@@ -921,14 +920,10 @@ begin
 					else
 						data_addr_int <= reg_rs2 - 1;
 				end
-				{1'b1, `STEP2, `INSTRUCTION_ST_XN}: data_addr_int <= data_addr_int;
 				{1'b1, `STEP1, `INSTRUCTION_OUT},
-				{1'b1, `STEP0, `INSTRUCTION_IN},
-				{1'b1, `STEP1, `INSTRUCTION_IN}: data_addr_int <= {pgm_data_registered[10:9],pgm_data_registered[3:0]} + 'h20;
+				{1'b1, `STEP0, `INSTRUCTION_IN}: data_addr_int <= {pgm_data_registered[10:9],pgm_data_registered[3:0]} + 'h20;
 				{1'b1, `STEP0, `INSTRUCTION_CBI_SBI},
-				{1'b1, `STEP1, `INSTRUCTION_CBI_SBI},
-				{1'b1, `STEP0, `INSTRUCTION_SBIC_SBIS},
-				{1'b1, `STEP1, `INSTRUCTION_SBIC_SBIS}: data_addr_int <= pgm_data_registered[7:3] + 'h20;
+				{1'b1, `STEP0, `INSTRUCTION_SBIC_SBIS}: data_addr_int <= pgm_data_registered[7:3] + 'h20;
 			endcase
 /* Set "data_out" */ /*************************************************************/
 			casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
@@ -1107,8 +1102,8 @@ begin
 						PC_TMP_H <= PC_SNAPSHOOT[ROM_ADDR_WIDTH - 1:8];
 				end
 				{1'b1, `STEP0, `INSTRUCTION_ICALL}: PC_TMP_H <= PC[ROM_ADDR_WIDTH - 1:8];
-				{1'b1, `STEP2, `INSTRUCTION_RET},
-				{1'b1, `STEP2, `INSTRUCTION_RETI}: PC_TMP_H <= data_in_int;
+				//{1'b1, `STEP2, `INSTRUCTION_RET},
+				//{1'b1, `STEP2, `INSTRUCTION_RETI}: PC_TMP_H <= data_in_int;
 			endcase
 /* Set "PC" */ /*************************************************************/
 			casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
@@ -1131,8 +1126,8 @@ begin
 				{1'b1, `STEP1, `INSTRUCTION_RETI},
 				{1'b1, `STEP2, `INSTRUCTION_RET},
 				{1'b1, `STEP2, `INSTRUCTION_RETI}: PC <= PC;
-				{1'b1, `STEP3, `INSTRUCTION_RET}: PC <= {PC_TMP_H, data_in_int};
-				{1'b1, `STEP3, `INSTRUCTION_RETI}: PC <= {PC_TMP_H, data_in_int} - 1;
+				{1'b1, `STEP3, `INSTRUCTION_RET}: PC <= {PC_TMP_H_RET_I, data_in_int};
+				{1'b1, `STEP3, `INSTRUCTION_RETI}: PC <= {PC_TMP_H_RET_I, data_in_int} - 1;
 				{1'b1, `STEP0, `INSTRUCTION_CPSE},
 				{1'b1, `STEP0, `INSTRUCTION_SBRC_SBRS},
 				{1'b1, `STEP0, `INSTRUCTION_POP},

@@ -44,6 +44,8 @@ wire btnu = 1; // Button Up
 initial begin
 	wait(clk);
 	wait(~clk);
+	wait(clk);
+	wait(~clk);
 	rst = 0;
 	wait(~clk);
 	wait(clk);
