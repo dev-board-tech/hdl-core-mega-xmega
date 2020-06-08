@@ -24,11 +24,11 @@
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
 `define CORE_TYPE				`MEGA_ENHANCED_128K
-`define ROM_ADDR_WIDTH			14 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes.
-`define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes.
-`define BUS_ADDR_DATA_LEN		12 // Max 4K Bytes.
-`define RAM_ADDR_WIDTH			12 // 4K Bytes.
-`define RAM_TYPE				"BLOCK"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
+`define ROM_ADDR_WIDTH			15 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes; 16 = 64K Words / 128K Bytes Not supported yet.
+`define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes, how big the first stage boot-loader ROM to be.
+`define BUS_ADDR_DATA_LEN		16 // Max 64K Bytes.
+`define RAM_TYPE				"SRAM"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
+`define RAM_ADDR_WIDTH			12 // 4K Bytes, if you use "SRAM" this value does not mater, will use a 32KB block.
 `define EEP_ADDR_WIDTH			10 // 1K Bytes.
 `define RESERVED_RAM_FOR_IO		12'h100 // Lowest 256 Bytes of RAM addresses are reserved for IO's.
 
@@ -127,6 +127,8 @@ wire data_write;
 wire [7:0]core_data_in;
 wire data_read;
 wire ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
+wire boot_ram_sel = &data_addr[`BUS_ADDR_DATA_LEN-1:9];
+wire app_ram_sel = ram_sel & ~boot_ram_sel;
 
 wire boot_rom_select = &pgm_addr[15 : `BOOT_ADDR_WIDTH];
 
@@ -1135,35 +1137,56 @@ endgenerate
 /* !BOOT APP */
 assign pgm_data = (BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? 16'h0 : pgm_data_app) | pgm_data_boot;
 
-/* RAM */
-wire [7:0]ram_bus_out;
+/* BOOT RAM */
+wire [7:0]boot_ram_bus_out;
+mega_ram  #(
+	.PLATFORM(PLATFORM),
+	.MEM_MODE("BLOCK"),
+	.ADDR_BUS_WIDTH(9),
+	.ADDR_RAM_DEPTH('h200),
+	.DATA_BUS_WIDTH(8),
+	.RAM_PATH("")
+)boot_ram(
+	.clk(core_clk),
+	.cs(boot_ram_sel),
+	.re(data_read),
+	.we(data_write),
+	.a(data_addr[8:0]),
+	.d_in(core_data_out),
+	.d_out(boot_ram_bus_out)
+);
+/* !APP RAM */
+
+/* BOOT RAM */
+wire [7:0]app_ram_bus_out;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE(`RAM_TYPE),
 	.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
-	.ADDR_RAM_DEPTH('hA00 + 'h200),
+	.ADDR_RAM_DEPTH('hA00),
 	.DATA_BUS_WIDTH(8),
 	.RAM_PATH("")
-)ram(
+)app_ram(
 	.clk(core_clk),
-	.cs(ram_sel),
+	.cs(app_ram_sel),
 	.re(data_read),
 	.we(data_write),
 	.a(data_addr[`RAM_ADDR_WIDTH-1:0] - `RESERVED_RAM_FOR_IO),
 	.d_in(core_data_out),
-	.d_out(ram_bus_out)
+	.d_out(app_ram_bus_out)
 );
-/* !RAM */
+/* !APP RAM */
 
 /* DATA BUS IN DEMULTIPLEXER */
 io_bus_dmux #(
-	.NR_OF_BUSSES_IN(17)
+	.NR_OF_BUSSES_IN(18)
 	)
 	ram_bus_dmux_inst(
 	.bus_in({
 	dat_boot_d_out,
 	io_in, 
-	ram_bus_out,
+	boot_ram_bus_out,
+	app_ram_bus_out,
 	dat_pb_d_out,
 	dat_pc_d_out,
 	dat_pd_d_out,
