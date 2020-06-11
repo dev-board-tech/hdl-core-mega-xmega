@@ -219,7 +219,8 @@ reg reg_rs2_b0;
 
 reg skip_next_clock;
 
-reg [7:0]PC_TMP_H;
+reg [7:0]PC_TMP_H_CALL;
+reg [ROM_ADDR_WIDTH - 9:0]PC_TMP_H_ICALL;
 reg [7:0]PC_TMP_H_RET_I;
 
 wire [ROM_ADDR_WIDTH - 1:0]PC_PLUS_ONE = PC + 1;
@@ -256,7 +257,7 @@ int_encoder # (
 	.int_vect(current_int_vect_request)
 	);
 /**************** !Interrupt instance  ********************/
-reg [ROM_ADDR_WIDTH - 1:0]PC_SNAPSHOOT;
+//reg [ROM_ADDR_WIDTH - 1:0]PC_SNAPSHOOT;
 reg [1:0]last_state;
 
 /*
@@ -285,7 +286,7 @@ begin
 					pgm_data_int = 16'b1001010000001110;
 					int_registered = 1'b1;
 					int_rst = 1'b1 << (current_int_vect_request - 1);
-					PC_SNAPSHOOT = PC;
+					//PC_SNAPSHOOT = PC;
 					//end
 				end
 				{3'b111, `STEP1}: 
@@ -429,7 +430,7 @@ initial begin
 	SREG = 8'h00;
 	data_addr_int = 'h00000000;
 	data_out_int = 8'h00;
-	PC_TMP_H = 8'h00;
+	PC_TMP_H_CALL = 8'h00;
 	int_rst = 1'b0;
 end
 
@@ -446,7 +447,7 @@ begin
 		SREG <= 8'h00;
 		//data_addr_int <= 'h00000000;
 		//data_out_int <= 8'h00;
-		//PC_TMP_H <= 8'h00;
+		//PC_TMP_H_CALL <= 8'h00;
 		pgm_data_registered = 16'h0000;
 	end
 	else
@@ -463,8 +464,10 @@ begin
 		PC <= PC_PLUS_ONE;
 		reg_rs2_b0 <= reg_rs2[0];
 		PC_TMP_H_RET_I <= data_in_int;
+		PC_TMP_H_ICALL <= PC[ROM_ADDR_WIDTH - 1:8];
+		PC_TMP_H_CALL <= PC_PLUS_ONE[ROM_ADDR_WIDTH - 1:8];
 		//data_addr_int <= 'h00000000;
-		//data_out_int <= 8'h00;
+		data_out_int <= reg_rs1;
 		if(&{state_cnt == `STEP0, ~skip_next_clock})
 			pgm_data_registered = pgm_data_int;
 		unlock_int_registered_step_2 <= 1'b0;
@@ -933,12 +936,12 @@ begin
 				begin
 					data_out_int <= PC_PLUS_ONE[7:0];
 					if(int_registered)
-						data_out_int <= PC_SNAPSHOOT;
+						data_out_int <= PC;
 				end
-				{1'b1, `STEP1, `INSTRUCTION_CALL}: data_out_int <= PC_TMP_H;
+				{1'b1, `STEP1, `INSTRUCTION_CALL}: data_out_int <= PC_TMP_H_CALL;
 				{1'b1, `STEP0, `INSTRUCTION_ICALL}: data_out_int <= PC[7:0];
-				{1'b1, `STEP1, `INSTRUCTION_ICALL}: data_out_int <= PC_TMP_H;
-				{1'b1, `STEP1, `INSTRUCTION_PUSH},
+				{1'b1, `STEP1, `INSTRUCTION_ICALL}: data_out_int <= PC_TMP_H_ICALL;
+				/*{1'b1, `STEP1, `INSTRUCTION_PUSH},
 				{1'b1, `STEP1, `INSTRUCTION_STS},
 				{1'b1, `STEP0, `INSTRUCTION_STS16},
 				{1'b1, `STEP1, `INSTRUCTION_STD},
@@ -947,13 +950,13 @@ begin
 				{1'b1, `STEP1, `INSTRUCTION_ST_X},
 				{1'b1, `STEP1, `INSTRUCTION_ST_XP},
 				{1'b1, `STEP2, `INSTRUCTION_ST_XN}: data_out_int <= reg_rs1;
-				{1'b1, `STEP1, `INSTRUCTION_OUT}: data_out_int = reg_rs1;
+				{1'b1, `STEP1, `INSTRUCTION_OUT}: data_out_int = reg_rs1;*/
 				{1'b1, `STEP1, `INSTRUCTION_CBI_SBI}:
 				begin
 					if(pgm_data_registered[9])
-						data_out_int = data_in | (2 ** pgm_data_registered[2:0]);
+						data_out_int <= data_in | (2 ** pgm_data_registered[2:0]);
 					else
-						data_out_int = data_in & ~(2 ** pgm_data_registered[2:0]);
+						data_out_int <= data_in & ~(2 ** pgm_data_registered[2:0]);
 				end
 			endcase
 /* Set "data_write" */ /*************************************************************/
@@ -1097,11 +1100,11 @@ begin
 			casex({execute, state_cnt, CORE_TYPE, pgm_data_registered})
 				{1'b1, `STEP0, `INSTRUCTION_CALL}: 
 				begin
-					PC_TMP_H <= PC_PLUS_ONE[ROM_ADDR_WIDTH - 1:8];
+					//PC_TMP_H <= PC_PLUS_ONE[ROM_ADDR_WIDTH - 1:8];
 					if(int_registered)
-						PC_TMP_H <= PC_SNAPSHOOT[ROM_ADDR_WIDTH - 1:8];
+						PC_TMP_H_CALL <= PC[ROM_ADDR_WIDTH - 1:8];
 				end
-				{1'b1, `STEP0, `INSTRUCTION_ICALL}: PC_TMP_H <= PC[ROM_ADDR_WIDTH - 1:8];
+				//{1'b1, `STEP0, `INSTRUCTION_ICALL}: PC_TMP_H <= PC[ROM_ADDR_WIDTH - 1:8];
 				//{1'b1, `STEP2, `INSTRUCTION_RET},
 				//{1'b1, `STEP2, `INSTRUCTION_RETI}: PC_TMP_H <= data_in_int;
 			endcase
