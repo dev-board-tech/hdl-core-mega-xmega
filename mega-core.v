@@ -819,8 +819,8 @@ begin
 				{1'b1, `STEP0, `INSTRUCTION_RETI},
 				{1'b1, `STEP1, `INSTRUCTION_RET},
 				{1'b1, `STEP1, `INSTRUCTION_RETI}: data_addr_int <= SP_PLUS_ONE;
-				{1'b1, `STEP2, `INSTRUCTION_RET},
-				{1'b1, `STEP2, `INSTRUCTION_RETI}: data_addr_int <= SP;
+				//{1'b1, `STEP2, `INSTRUCTION_RET},
+				//{1'b1, `STEP2, `INSTRUCTION_RETI}: data_addr_int <= SP;
 				{1'b1, `STEP0, `INSTRUCTION_POP}: data_addr_int <= SP_PLUS_ONE;
 				//{1'b1, `STEP1, `INSTRUCTION_POP}: data_addr_int <= SP;
 				{1'b1, `STEP1, `INSTRUCTION_LDS}: 
@@ -1173,8 +1173,7 @@ end
 
 mega_alu #(
 	.PLATFORM(PLATFORM),
-	.CORE_TYPE(CORE_TYPE),
-	.COMASATE_MUL(COMASATE_MUL)
+	.CORE_TYPE(CORE_TYPE)
 )mega_alu_inst(
 	.inst(pgm_data_registered),
 	.rda(rs1a),

@@ -23,17 +23,17 @@
 `include "mega-def.v"
 
 /* ATMEGA32U4 is a "MEGA_ENHANCED_128K" family */
-`define CORE_TYPE				`MEGA_ENHANCED_128K
+/*`define CORE_TYPE				`MEGA_ENHANCED_128K
 `define ROM_ADDR_WIDTH			15 // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes; 16 = 64K Words / 128K Bytes Not supported yet.
 `define BOOT_ADDR_WIDTH			10 // 1024 Words / 2048 Bytes, how big the first stage boot-loader ROM to be.
 `define BUS_ADDR_DATA_LEN		16 // Max 64K Bytes.
 `define RAM_TYPE				"SRAM"  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
-`define RAM_ADDR_WIDTH			12 // 4K Bytes, if you use "SRAM" this value does not mater, will use a 32KB block.
+`define RAM_ADDR_WIDTH			15 // 32KB, if you use "SRAM" this value need to be 15.
 `define EEP_ADDR_WIDTH			10 // 1K Bytes.
 `define RESERVED_RAM_FOR_IO		12'h100 // Lowest 256 Bytes of RAM addresses are reserved for IO's.
 
-`define VECTOR_INT_TABLE_SIZE	43// 42 + NMI
-`define WATCHDOG_CNT_WIDTH		0//27 // We do not use watchdog, is not a critical design and most of arduboy games does not use him.
+`define VECTOR_INT_TABLE_SIZE	43// 42 of original ATmega32U4 + NMI
+`define WATCHDOG_CNT_WIDTH		0//27 // We do not use watchdog, is not a critical design and most of arduboy games does not use him.*/
 
 /* TIMMERS PRESCALLERS MODULE */
 module tim_013_prescaller (
@@ -70,8 +70,19 @@ module atmega32u4_arduboy # (
 	parameter PLATFORM = "XILINX",
 	parameter BOOT_ADDR = 0,
 	parameter ARDU_FPGA_ICE40UP5K_GAME = "FALSE",
+
+	parameter CORE_TYPE = `MEGA_ENHANCED_128K,
+	parameter ROM_ADDR_WIDTH = 15, // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes; 16 = 64K Words / 128K Bytes Not supported yet.
+	parameter BOOT_ADDR_WIDTH = 10, // 1024 Words / 2048 Bytes, how big the first stage boot-loader ROM to be.
+	parameter BUS_ADDR_DATA_LEN = 16, // Max 64K Bytes.
+	parameter RAM_TYPE = "SRAM",  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
+	parameter RAM_ADDR_WIDTH = 15, // 32KB, if you use "SRAM" this value need to be 15.
+	parameter EEP_ADDR_WIDTH = 10, // 1K Bytes.
+	parameter RESERVED_RAM_FOR_IO = 12'h100, // Lowest 256 Bytes of RAM addresses are reserved for IO's.
+	parameter VECTOR_INT_TABLE_SIZE = 43,// 42 of original ATmega32U4 + NMI
+	parameter WATCHDOG_CNT_WIDTH = 0,//27 // We do not use watchdog, is not a critical design and most of arduboy games does not use him.
+
 	parameter REGS_REGISTERED = "FALSE",
-	parameter COMASATE_MUL = "FALSE",
 	parameter ROM_PATH = "",
 	parameter USE_PIO_B = "TRUE",
 	parameter USE_PIO_C = "TRUE",
@@ -87,8 +98,7 @@ module atmega32u4_arduboy # (
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
 	parameter USE_EEPROM = "TRUE",
-	parameter USE_RNG_AS_ADC ="TRUE",
-	parameter TIMER_INCREMENT_VALUE = 2
+	parameter USE_RNG_AS_ADC ="TRUE"
 )(
 	input core_rst,
 	input dev_rst,
@@ -96,6 +106,8 @@ module atmega32u4_arduboy # (
 	input clk_pll,
 	input nmi_sig,
 	output nmi_rst,
+	input sec_reg_rst,
+	output sec_en,
     input [5:0] buttons,
     output [2:0] RGB,
     output Buzzer1, Buzzer2, OledDC, OledCS, OledRST, spi_scl, spi_mosi, uSD_CS, ADC_CS,
@@ -121,16 +133,16 @@ wire wdt_rst;
 /* CORE WIRES */
 wire [15:0]pgm_addr;
 wire [15:0]pgm_data;
-wire [`BUS_ADDR_DATA_LEN-1:0]data_addr;
+wire [BUS_ADDR_DATA_LEN-1:0]data_addr;
 wire [7:0]core_data_out;
 wire data_write;
 wire [7:0]core_data_in;
 wire data_read;
-wire ram_sel = |data_addr[`BUS_ADDR_DATA_LEN-1:8];
-wire boot_ram_sel = &data_addr[`BUS_ADDR_DATA_LEN-1:9];
+wire ram_sel = |data_addr[BUS_ADDR_DATA_LEN-1:8];
+wire boot_ram_sel = &data_addr[BUS_ADDR_DATA_LEN-1:9];
 wire app_ram_sel = ram_sel & ~boot_ram_sel;
 
-wire boot_rom_select = &pgm_addr[15 : `BOOT_ADDR_WIDTH];
+wire boot_rom_select = &pgm_addr[15 : BOOT_ADDR_WIDTH];
 
 assign io_addr = data_addr[7:0];
 assign io_out = core_data_out;
@@ -636,7 +648,7 @@ atmega_tim_8bit # (
 	.OCRB_ADDR('h48),
 	.TIMSK_ADDR('h6E),
 	.TIFR_ADDR('h35),
-	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
+	.INCREMENT_VALUE(1)
 )tim_0(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -702,7 +714,7 @@ atmega_tim_16bit # (
 	.OCRCH_ADDR('h8D),
 	.TIMSK_ADDR('h6F),
 	.TIFR_ADDR('h36),
-	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
+	.INCREMENT_VALUE(1)
 )tim_1(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -772,7 +784,7 @@ atmega_tim_16bit # (
 	.OCRCH_ADDR('h9D),
 	.TIMSK_ADDR('h71),
 	.TIFR_ADDR('h38),
-	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
+	.INCREMENT_VALUE(1)
 )tim_3(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -873,7 +885,7 @@ atmega_tim_10bit # (
 	.OCRD_ADDR('hd2),
 	.TIMSK_ADDR('h72),
 	.TIFR_ADDR('h39),
-	.INCREMENT_VALUE(TIMER_INCREMENT_VALUE)
+	.INCREMENT_VALUE(1)
 )tim_4(
 	.rst(io_rst),
 	.clk(core_clk),
@@ -994,6 +1006,7 @@ end
 endgenerate
 /* !RNG as ADC */
 
+`define SEC_REG_ADDR	3'h0
 `define F_CNT_L_ADDR	3'h3
 `define F_CNT_H_ADDR	3'h4
 `define F_DATA_L_ADDR	3'h5
@@ -1008,6 +1021,8 @@ endgenerate
 `define BOOT_STAT_DEBUG_EN			7
 
 
+reg [7:0]SEC_REG;
+reg [7:0]SEC_REG0;
 reg [7:0]F_CNT_L;
 reg [7:0]F_CNT_H;
 reg [7:0]F_DATA_L;
@@ -1021,6 +1036,8 @@ always @ (posedge core_clk)
 begin
 	if(core_rst)
 	begin
+		SEC_REG <= 8'h00;
+		SEC_REG0 <= 8'h00;
 		F_CNT_L <= 8'h00;
 		F_CNT_H <= 8'h00;
 		F_DATA_L <= 8'h00;
@@ -1028,6 +1045,11 @@ begin
 	end
 	else
 	begin
+		if(io_rst | sec_reg_rst)
+		begin
+			SEC_REG <= 8'h00;
+			SEC_REG0 <= 8'h00;
+		end
 		if(pgm_wr_en)
 			{F_CNT_H, F_CNT_L} <= {F_CNT_H, F_CNT_L} + 16'h0001;
 		pgm_wr_en <= 1'b0;
@@ -1036,6 +1058,11 @@ begin
 		if(io_write & (&io_addr[7:3]))
 		begin
 			case(data_addr[2:0])
+				`SEC_REG_ADDR:
+				begin
+					SEC_REG0 <= SEC_REG;
+					SEC_REG <= io_out;
+				end
 				`F_CNT_L_ADDR: F_CNT_L <= io_out;
 				`F_CNT_H_ADDR: F_CNT_H <= io_out;
 				`F_DATA_L_ADDR: F_DATA_L <= io_out;
@@ -1044,7 +1071,11 @@ begin
 					F_DATA_H <= io_out;
 					pgm_wr_en <= 1'b1;
 				end
-				`BOOT_STAT_ADDR: BOOT_STAT <= io_out;
+				`BOOT_STAT_ADDR: 
+				begin
+					//if(sec_en)
+						BOOT_STAT <= io_out;
+				end
 			endcase
 		end
 	end
@@ -1062,7 +1093,8 @@ begin
 		endcase
 	end
 end
- 
+
+assign sec_en = SEC_REG == ~SEC_REG0 & SEC_REG != 0 & SEC_REG != 8'hFF;
 assign io_rst = BOOT_STAT[`BOOT_STAT_IO_RST] | core_rst;
 
 
@@ -1074,7 +1106,7 @@ always @ (posedge core_clk) boot_rom_select_del <= boot_rom_select;
 wire [15:0]pgm_data_boot;
 mega_rom  #(
 	.PLATFORM(PLATFORM),
-	.ADDR_ROM_BUS_WIDTH(`BOOT_ADDR_WIDTH),
+	.ADDR_ROM_BUS_WIDTH(BOOT_ADDR_WIDTH),
 	.ROM_PATH(ROM_PATH)
 )rom(
 	.clk(core_clk),
@@ -1084,7 +1116,7 @@ mega_rom  #(
 );
  
 /* ROM APP */
-wire[`ROM_ADDR_WIDTH-1:0]rom_addr = BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[6:0], F_CNT_L}: pgm_addr[`ROM_ADDR_WIDTH-1:0];
+wire[ROM_ADDR_WIDTH-1:0]rom_addr = BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[6:0], F_CNT_L}: pgm_addr[ROM_ADDR_WIDTH-1:0];
 reg ram_cs_del;
 always @ (posedge clk) ram_cs_del <= rom_addr[14];
 wire [15:0]pgm_data_app;
@@ -1092,14 +1124,14 @@ wire [15:0]pgm_data_app1;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE("SRAM"), // "BLOCK","SRAM"
-	.ADDR_BUS_WIDTH(`ROM_ADDR_WIDTH == 15 ? 14: `ROM_ADDR_WIDTH),
-	.ADDR_RAM_DEPTH(2 ** (`ROM_ADDR_WIDTH == 15 ? 14: `ROM_ADDR_WIDTH)),
+	.ADDR_BUS_WIDTH(ROM_ADDR_WIDTH == 15 ? 14: ROM_ADDR_WIDTH),
+	.ADDR_RAM_DEPTH(2 ** (ROM_ADDR_WIDTH == 15 ? 14: ROM_ADDR_WIDTH)),
 	.DATA_BUS_WIDTH(16),
 	.RAM_PATH("")
 )rom_app(
 	.clk(core_clk),
 	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
-	.re(`ROM_ADDR_WIDTH == 14 ? 1'b1 : ~ram_cs_del),
+	.re(ROM_ADDR_WIDTH == 14 ? 1'b1 : ~ram_cs_del),
 	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
 	.a(rom_addr[13:0]),
 	.d_in({F_DATA_H, F_DATA_L}),
@@ -1108,7 +1140,7 @@ mega_ram  #(
 
 wire [15:0]pgm_data_app2;
 generate
-if(`ROM_ADDR_WIDTH == 15)
+if(ROM_ADDR_WIDTH == 15)
 begin// 64KB of ROM/32KWords of ROM
 mega_ram  #(
 	.PLATFORM(PLATFORM),
@@ -1161,8 +1193,8 @@ mega_ram  #(
 wire [7:0]app_ram_bus_out;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
-	.MEM_MODE(`RAM_TYPE),
-	.ADDR_BUS_WIDTH(`RAM_ADDR_WIDTH),
+	.MEM_MODE(RAM_TYPE),
+	.ADDR_BUS_WIDTH(RAM_ADDR_WIDTH),
 	.ADDR_RAM_DEPTH('hA00),
 	.DATA_BUS_WIDTH(8),
 	.RAM_PATH("")
@@ -1171,7 +1203,7 @@ mega_ram  #(
 	.cs(app_ram_sel),
 	.re(data_read),
 	.we(data_write),
-	.a(data_addr[`RAM_ADDR_WIDTH-1:0] - `RESERVED_RAM_FOR_IO),
+	.a(data_addr[RAM_ADDR_WIDTH-1:0] - RESERVED_RAM_FOR_IO),
 	.d_in(core_data_out),
 	.d_out(app_ram_bus_out)
 );
@@ -1210,15 +1242,14 @@ io_bus_dmux #(
 
 mega # (
 	.PLATFORM(PLATFORM),
-	.CORE_TYPE(`CORE_TYPE),
+	.CORE_TYPE(CORE_TYPE),
 	.BOOT_ADDR(BOOT_ADDR),
 	.ROM_ADDR_WIDTH(16),
-	.RAM_ADDR_WIDTH(`BUS_ADDR_DATA_LEN),
-	.WATCHDOG_CNT_WIDTH(`WATCHDOG_CNT_WIDTH),/* If is 0 the watchdog is disabled */
-	.VECTOR_INT_TABLE_SIZE(`VECTOR_INT_TABLE_SIZE),/* If is 0 the interrupt module is disabled */
+	.RAM_ADDR_WIDTH(BUS_ADDR_DATA_LEN),
+	.WATCHDOG_CNT_WIDTH(WATCHDOG_CNT_WIDTH),/* If is 0 the watchdog is disabled */
+	.VECTOR_INT_TABLE_SIZE(VECTOR_INT_TABLE_SIZE),/* If is 0 the interrupt module is disabled */
 	.NMI_VECTOR(16'hFC01),
-	.REGS_REGISTERED(REGS_REGISTERED),
-	.COMASATE_MUL(COMASATE_MUL)
+	.REGS_REGISTERED(REGS_REGISTERED)
 	)atmega32u4_inst(
 	.rst(core_rst),
 	.sys_rst_out(wdt_rst),
