@@ -355,17 +355,17 @@ atmega_pio # (
 	.INITIAL_OUTPUT_VALUE(8'b00000001),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_b(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pb_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pb_d_out),
 
-	.io_in(pb_in),
-	.io_out(pb_out),
-	.pio_out_io_connect(piob_out_io_connect)
+	.io_i(pb_in),
+	.io_o(pb_out),
+	.pio_out_io_connect_o(piob_out_io_connect)
 	);
 end
 else
@@ -394,17 +394,17 @@ atmega_pio # (
 	.INITIAL_OUTPUT_VALUE(8'b00000000),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_c(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pc_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pc_d_out),
 
-	.io_in(pc_in),
-	.io_out(pc_out),
-	.pio_out_io_connect(pioc_out_io_connect)
+	.io_i(pc_in),
+	.io_o(pc_out),
+	.pio_out_io_connect_o(pioc_out_io_connect)
 	);
 end
 else
@@ -433,17 +433,17 @@ atmega_pio # (
 	.INITIAL_OUTPUT_VALUE(8'b01111100),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_d(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pd_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pd_d_out),
 
-	.io_in(pd_in),
-	.io_out(pd_out),
-	.pio_out_io_connect(piod_out_io_connect)
+	.io_i(pd_in),
+	.io_o(pd_out),
+	.pio_out_io_connect_o(piod_out_io_connect)
 	);
 end
 else
@@ -472,17 +472,17 @@ atmega_pio # (
 	.INITIAL_OUTPUT_VALUE(8'b00000000),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_e(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pe_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pe_d_out),
 
-	.io_in(pe_in),
-	.io_out(pe_out),
-	.pio_out_io_connect(pioe_out_io_connect)
+	.io_i(pe_in),
+	.io_o(pe_out),
+	.pio_out_io_connect_o(pioe_out_io_connect)
 	);
 end
 else
@@ -511,17 +511,17 @@ atmega_pio # (
 	.INITIAL_OUTPUT_VALUE(8'b00000000),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_f(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pf_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pf_d_out),
 
-	.io_in(pf_in),
-	.io_out(pf_out),
-	.pio_out_io_connect(piof_out_io_connect)
+	.io_i(pf_in),
+	.io_o(pf_out),
+	.pio_out_io_connect_o(piof_out_io_connect)
 	);
 end
 else
@@ -548,21 +548,21 @@ atmega_spi_m # (
 	.USE_TX("TRUE"),
 	.USE_RX("TRUE")
 )spi(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_spi_d_out),
-	.int(int_spi_stc),
-	.int_rst(int_spi_stc_rst),
-	.io_connect(spi_io_connect),
-	.io_conn_slave(io_conn_slave),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_spi_d_out),
+	.int_o(int_spi_stc),
+	.int_ack_i(int_spi_stc_rst),
+	.io_connect_o(spi_io_connect),
+	.io_conn_slave_o(io_conn_slave),
 
-	.scl(spi_scl),
-	.miso(spi_miso),
-	.mosi(spi_mosi)
+	.scl_o(spi_scl),
+	.miso_i(spi_miso),
+	.mosi_o(spi_mosi)
 	);
 end
 else
@@ -590,24 +590,24 @@ atmega_uart # (
 	.USE_TX("TRUE"),
 	.USE_RX("TRUE")
 	)uart(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_uart0_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_uart0_d_out),
 	
-	.rxc_int(int_usart1_rx),
-	.rxc_int_rst(int_usart1_rx_rst),
-	.txc_int(int_usart1_tx),
-	.txc_int_rst(int_usart1_tx_rst),
-	.udre_int(int_usart1_udre),
-	.udre_int_rst(int_usart1_udre_rst),
+	.rxc_int_o(int_usart1_rx),
+	.rxc_int_ack_i(int_usart1_rx_rst),
+	.txc_int_o(int_usart1_tx),
+	.txc_int_ack_i(int_usart1_tx_rst),
+	.udre_int_o(int_usart1_udre),
+	.udre_int_ack_i(int_usart1_udre_rst),
 
-	.rx(uart_rx),
-	.tx(uart_tx),
-	.tx_connect(uart_tx_io_connect)
+	.rx_i(uart_rx),
+	.tx_o(uart_tx),
+	.tx_connect_o(uart_tx_io_connect)
 	);
 end
 else
@@ -655,30 +655,30 @@ atmega_tim_8bit # (
 	.TIFR_ADDR('h35),
 	.INCREMENT_VALUE(1)
 )tim_0(
-	.rst(io_rst),
-	.clk(core_clk),
-	.clk8(clk8),
-	.clk64(clk64),
-	.clk256(clk256),
-	.clk1024(clk1024),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_tim0_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.clk8_i(clk8),
+	.clk64_i(clk64),
+	.clk256_i(clk256),
+	.clk1024_i(clk1024),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_tim0_d_out),
 	
-	.tov_int(int_timer0_ovf),
-	.tov_int_rst(int_timer0_ovf_rst),
-	.ocra_int(int_timer0_compa),
-	.ocra_int_rst(int_timer0_compa_rst),
-	.ocrb_int(int_timer0_compb),
-	.ocrb_int_rst(int_timer0_compb_rst),
+	.tov_int_o(int_timer0_ovf),
+	.tov_int_ack_i(int_timer0_ovf_rst),
+	.ocra_int_o(int_timer0_compa),
+	.ocra_int_ack_i(int_timer0_compa_rst),
+	.ocrb_int_o(int_timer0_compb),
+	.ocrb_int_ack_i(int_timer0_compb_rst),
 	
-	.t(),
-	.oca(tim0_oca),
-	.ocb(tim0_ocb),
-	.oca_io_connect(tim0_oca_io_connect),
-	.ocb_io_connect(tim0_ocb_io_connect)
+	.t_i(),
+	.oca_o(tim0_oca),
+	.ocb_o(tim0_ocb),
+	.oca_io_connect_o(tim0_oca_io_connect),
+	.ocb_io_connect_o(tim0_ocb_io_connect)
 	);
 end
 else
@@ -721,38 +721,38 @@ atmega_tim_16bit # (
 	.TIFR_ADDR('h36),
 	.INCREMENT_VALUE(1)
 )tim_1(
-	.rst(io_rst),
-	.clk(core_clk),
-	.clk8(clk8),
-	.clk64(clk64),
-	.clk256(clk256),
-	.clk1024(clk1024),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_tim1_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.clk8_i(clk8),
+	.clk64_i(clk64),
+	.clk256_i(clk256),
+	.clk1024_i(clk1024),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_tim1_d_out),
 	
-	.tov_int(int_timer1_ovf),
-	.tov_int_rst(int_timer1_ovf_rst),
-	.ocra_int(int_timer1_compa),
-	.ocra_int_rst(int_timer1_compa_rst),
-	.ocrb_int(int_timer1_compb),
-	.ocrb_int_rst(int_timer1_compb_rst),
-	.ocrc_int(int_timer1_compc),
-	.ocrc_int_rst(int_timer1_compc_rst),
-	.ocrd_int(),
-	.ocrd_int_rst(),
+	.tov_int_o(int_timer1_ovf),
+	.tov_int_ack_i(int_timer1_ovf_rst),
+	.ocra_int_o(int_timer1_compa),
+	.ocra_int_ack_i(int_timer1_compa_rst),
+	.ocrb_int_o(int_timer1_compb),
+	.ocrb_int_ack_i(int_timer1_compb_rst),
+	.ocrc_int_o(int_timer1_compc),
+	.ocrc_int_ack_i(int_timer1_compc_rst),
+	.ocrd_int_o(),
+	.ocrd_int_ack_i(),
 	
-	.t(),
-	.oca(tim1_oca),
-	.ocb(tim1_ocb),
-	.occ(tim1_occ),
-	.ocd(),
-	.oca_io_connect(tim1_oca_io_connect),
-	.ocb_io_connect(tim1_ocb_io_connect),
-	.occ_io_connect(tim1_occ_io_connect),
-	.ocd_io_connect()
+	.t_i(),
+	.oca_o(tim1_oca),
+	.ocb_o(tim1_ocb),
+	.occ_o(tim1_occ),
+	.ocd_o(),
+	.oca_io_connect_o(tim1_oca_io_connect),
+	.ocb_io_connect_o(tim1_ocb_io_connect),
+	.occ_io_connect_o(tim1_occ_io_connect),
+	.ocd_io_connect_o()
 	);
 end
 else
@@ -791,38 +791,38 @@ atmega_tim_16bit # (
 	.TIFR_ADDR('h38),
 	.INCREMENT_VALUE(1)
 )tim_3(
-	.rst(io_rst),
-	.clk(core_clk),
-	.clk8(clk8),
-	.clk64(clk64),
-	.clk256(clk256),
-	.clk1024(clk1024),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_tim3_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.clk8_i(clk8),
+	.clk64_i(clk64),
+	.clk256_i(clk256),
+	.clk1024_i(clk1024),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_tim3_d_out),
 	
-	.tov_int(int_timer3_ovf),
-	.tov_int_rst(int_timer3_ovf_rst),
-	.ocra_int(int_timer3_compa),
-	.ocra_int_rst(int_timer3_compa_rst),
-	.ocrb_int(int_timer3_compb),
-	.ocrb_int_rst(int_timer3_compb_rst),
-	.ocrc_int(int_timer3_compc),
-	.ocrc_int_rst(int_timer3_compc_rst),
-	.ocrd_int(),
-	.ocrd_int_rst(),
+	.tov_int_o(int_timer3_ovf),
+	.tov_int_ack_i(int_timer3_ovf_rst),
+	.ocra_int_o(int_timer3_compa),
+	.ocra_int_ack_i(int_timer3_compa_rst),
+	.ocrb_int_o(int_timer3_compb),
+	.ocrb_int_ack_i(int_timer3_compb_rst),
+	.ocrc_int_o(int_timer3_compc),
+	.ocrc_int_ack_i(int_timer3_compc_rst),
+	.ocrd_int_o(),
+	.ocrd_int_ack_i(),
 	
-	.t(),
-	.oca(tim3_oca),
-	.ocb(tim3_ocb),
-	.occ(tim3_occ),
-	.ocd(),
-	.oca_io_connect(tim3_oca_io_connect),
-	.ocb_io_connect(tim3_ocb_io_connect),
-	.occ_io_connect(tim3_occ_io_connect),
-	.ocd_io_connect()
+	.t_i(),
+	.oca_o(tim3_oca),
+	.ocb_o(tim3_ocb),
+	.occ_o(tim3_occ),
+	.ocd_o(),
+	.oca_io_connect_o(tim3_oca_io_connect),
+	.ocb_io_connect_o(tim3_ocb_io_connect),
+	.occ_io_connect_o(tim3_occ_io_connect),
+	.ocd_io_connect_o()
 	);
 end
 else
@@ -844,19 +844,19 @@ atmega_pll # (
 	.PLLFRQ_ADDR('h52),
 	.USE_PLL(USE_PLL_HI_FREQ)
 )pll(
-	.rst(io_rst),
-	.clk(core_clk),
-	.clk_pll(clk_pll),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_pll_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.clk_pll_i(clk_pll),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_pll_d_out),
 	
-	.pll_enabled(pll_enabled),
+	.pll_enabled_o(pll_enabled),
 
-	.usb_ck_out(usb_ck_out),
-	.tim_ck_out(tim_ck_out)
+	.usb_ck_o(usb_ck_out),
+	.tim_ck_o(tim_ck_out)
 	);
 end
 else
@@ -892,40 +892,40 @@ atmega_tim_10bit # (
 	.TIFR_ADDR('h39),
 	.INCREMENT_VALUE(1)
 )tim_4(
-	.rst(io_rst),
-	.clk(core_clk),
-	.clk_pll(tim_ck_out),
-	.pll_enabled(pll_enabled),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_tim4_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.clk_pll_i(tim_ck_out),
+	.pll_enabled_i(pll_enabled),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_tim4_d_out),
 	
-	.tov_int(int_timer4_ovf),
-	.tov_int_rst(int_timer4_ovf_rst),
-	.ocra_int(int_timer4_compa),
-	.ocra_int_rst(int_timer4_compa_rst),
-	.ocrb_int(int_timer4_compb),
-	.ocrb_int_rst(int_timer4_compb_rst),
-	.ocrc_int(),
-	.ocrc_int_rst(),
-	.ocrd_int(int_timer4_compd),
-	.ocrd_int_rst(int_timer4_compd_rst),
+	.tov_int_o(int_timer4_ovf),
+	.tov_int_ack_i(int_timer4_ovf_rst),
+	.ocra_int_o(int_timer4_compa),
+	.ocra_int_ack_i(int_timer4_compa_rst),
+	.ocrb_int_o(int_timer4_compb),
+	.ocrb_int_ack_i(int_timer4_compb_rst),
+	.ocrc_int_o(),
+	.ocrc_int_ack_i(),
+	.ocrd_int_o(int_timer4_compd),
+	.ocrd_int_ack_i(int_timer4_compd_rst),
 	
-	.t(),
-	.oca(tim4_oca),
-	.ocb(tim4_ocb),
-	.occ(tim4_occ),
-	.ocd(tim4_ocd),
-	.ocap_io_connect(tim4_ocap_io_connect),
-	.ocan_io_connect(tim4_ocan_io_connect),
-	.ocbp_io_connect(tim4_ocbp_io_connect),
-	.ocbn_io_connect(tim4_ocbn_io_connect),
-	.occp_io_connect(tim4_occp_io_connect),
-	.occn_io_connect(tim4_occn_io_connect),
-	.ocdp_io_connect(tim4_ocdp_io_connect),
-	.ocdn_io_connect(tim4_ocdn_io_connect)
+	.t_i(),
+	.oca_o(tim4_oca),
+	.ocb_o(tim4_ocb),
+	.occ_o(tim4_occ),
+	.ocd_o(tim4_ocd),
+	.ocap_io_connect_o(tim4_ocap_io_connect),
+	.ocan_io_connect_o(tim4_ocan_io_connect),
+	.ocbp_io_connect_o(tim4_ocbp_io_connect),
+	.ocbn_io_connect_o(tim4_ocbn_io_connect),
+	.occp_io_connect_o(tim4_occp_io_connect),
+	.occn_io_connect_o(tim4_occn_io_connect),
+	.ocdp_io_connect_o(tim4_ocdp_io_connect),
+	.ocdn_io_connect_o(tim4_ocdn_io_connect)
 	);
 end
 else
@@ -950,26 +950,26 @@ atmega_eep # (
 	.EECR_ADDR('h3F),
 	.EEP_SIZE(1024)
 )eep(
-	.rst(io_rst),
-	.clk(core_clk),
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_eeprom_d_out),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_eeprom_d_out),
 	
-	.int(int_ee_ready),
-	.int_rst(int_ee_ready_rst),
+	.int_o(int_ee_ready),
+	.int_rst_i(int_ee_ready_rst),
 
-	.ext_eep_addr(),
-	.ext_eep_data_in(),
-	.ext_eep_data_wr(),
-	.ext_eep_data_out(),
-	.ext_eep_data_rd(),
-	.ext_eep_data_en(),
+	.ext_eep_addr_i(),
+	.ext_eep_data_i(),
+	.ext_eep_data_wr_i(),
+	.ext_eep_data_o(),
+	.ext_eep_data_rd_i(),
+	.ext_eep_data_en_i(),
 
-	.content_modifyed(eep_content_modifyed),
-	.debug()
+	.content_modifyed_o(eep_content_modifyed),
+	.debug_o()
 	);
 end
 else
@@ -979,7 +979,7 @@ end
 endgenerate
 /* !EEPROM */
 
-/* RNG as ADC */
+/* LFSR RNG as ADC */
 wire [7:0]dat_adc_d_out;
 generate
 if(USE_RNG_AS_ADC == "TRUE")
@@ -994,14 +994,14 @@ atmega_rng_as_adc # (
 	.ADCSRB_ADDR('h7B),
 	.ADMUX_ADDR('h7C)
 )adc(
-	.rst(io_rst),
-	.clk(core_clk),
+	.rst_i(io_rst),
+	.clk_i(core_clk),
 
-	.addr(io_addr),
-	.wr(io_write),
-	.rd(io_read),
-	.bus_in(io_out),
-	.bus_out(dat_adc_d_out)
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_adc_d_out)
     );
 end
 else
@@ -1026,8 +1026,8 @@ endgenerate
 `define BOOT_STAT_DEBUG_EN			7
 
 
-reg [7:0]SEC_REG;
-reg [7:0]SEC_REG0;
+//reg [7:0]SEC_REG;
+//reg [7:0]SEC_REG0;
 reg [7:0]F_CNT_L;
 reg [7:0]F_CNT_H;
 reg [7:0]F_DATA_L;
@@ -1041,8 +1041,8 @@ always @ (posedge core_clk)
 begin
 	if(core_rst)
 	begin
-		SEC_REG <= 8'h00;
-		SEC_REG0 <= 8'h00;
+		//SEC_REG <= 8'h00;
+		//SEC_REG0 <= 8'h00;
 		F_CNT_L <= 8'h00;
 		F_CNT_H <= 8'h00;
 		F_DATA_L <= 8'h00;
@@ -1050,11 +1050,11 @@ begin
 	end
 	else
 	begin
-		if(io_rst | sec_reg_rst)
+		/*if(io_rst | sec_reg_rst)
 		begin
 			SEC_REG <= 8'h00;
 			SEC_REG0 <= 8'h00;
-		end
+		end*/
 		if(pgm_wr_en)
 			{F_CNT_H, F_CNT_L} <= {F_CNT_H, F_CNT_L} + 16'h0001;
 		pgm_wr_en <= 1'b0;
@@ -1063,11 +1063,11 @@ begin
 		if(io_write & (&io_addr[7:3]))
 		begin
 			case(data_addr[2:0])
-				`SEC_REG_ADDR:
+				/*`SEC_REG_ADDR:
 				begin
 					SEC_REG0 <= SEC_REG;
 					SEC_REG <= io_out;
-				end
+				end*/
 				`F_CNT_L_ADDR: F_CNT_L <= io_out;
 				`F_CNT_H_ADDR: F_CNT_H <= io_out;
 				`F_DATA_L_ADDR: F_DATA_L <= io_out;
@@ -1099,7 +1099,7 @@ begin
 	end
 end
 
-assign sec_en = SEC_REG == ~SEC_REG0 & SEC_REG != 0 & SEC_REG != 8'hFF;
+//assign sec_en = SEC_REG == ~SEC_REG0 & SEC_REG != 0 & SEC_REG != 8'hFF;
 assign io_rst = BOOT_STAT[`BOOT_STAT_IO_RST] | core_rst;
 
 
