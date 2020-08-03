@@ -643,7 +643,8 @@ if (USE_TIMER_0 == "TRUE")
 begin:TIMER0
 atmega_tim_8bit # (
 	.PLATFORM(PLATFORM),
-	.USE_OCRB("TRUE"),
+	.USE_OCRA("FALSE"),
+	.USE_OCRB("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h44),
