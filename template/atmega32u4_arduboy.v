@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
+ 
 `timescale 1ns / 1ps
 
 `include "mega-def.v"
@@ -97,6 +97,7 @@ module atmega32u4_arduboy # (
 	parameter USE_TIMER_4 = "TRUE",
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
+	parameter USE_TWI_1 = "TRUE",
 	parameter USE_EEPROM = "TRUE",
 	parameter USE_RNG_AS_ADC ="TRUE"
 )(
@@ -105,7 +106,7 @@ module atmega32u4_arduboy # (
 	input clk,
 	input clk_pll,
 	input nmi_sig,
-	output nmi_rst,
+	output nmi_ack,
 	input sec_reg_rst,
 	output sec_en,
     input [5:0] buttons,
@@ -117,6 +118,8 @@ module atmega32u4_arduboy # (
 	input uSD_CD,
 	output uart_tx,
 	input uart_rx,
+	inout twi_scl,
+	inout twi_sda,
 	/* For IO's that are not included in original ATmega32u4 device */
 	output [7:0]io_addr,
 	output [7:0]io_out,
@@ -124,7 +127,8 @@ module atmega32u4_arduboy # (
 	input [7:0]io_in,
 	output io_read,
 	output io_sel,
-	output io_rst
+	output io_rst,
+	output nmi_rst
 	);
 
 wire core_clk = clk;
@@ -142,7 +146,7 @@ wire ram_sel = |data_addr[BUS_ADDR_DATA_LEN-1:8];
 wire boot_ram_sel = &data_addr[BUS_ADDR_DATA_LEN-1:9];
 wire app_ram_sel = ram_sel & ~boot_ram_sel;
 
-wire boot_rom_select = &pgm_addr[15 : BOOT_ADDR_WIDTH];
+wire boot_rom_select = &pgm_addr[ROM_ADDR_WIDTH - 1 : BOOT_ADDR_WIDTH];
 
 assign io_addr = data_addr[7:0];
 assign io_out = core_data_out;
@@ -292,48 +296,48 @@ wire int_timer4_fpf = 0;
 /* !Interrupt wires */
 
 /* Interrupt reset wires */
-wire int_int0_rst;
-wire int_int1_rst;
-wire int_int2_rst;
-wire int_int3_rst;
-wire int_reserved0_rst;
-wire int_reserved1_rst;
-wire int_int6_rst;
-wire int_reserved3_rst;
-wire int_pcint0_rst;
-wire int_usb_general_rst;
-wire int_usb_endpoint_rst;
-wire int_wdt_rst;
-wire int_reserved4_rst;
-wire int_reserved5_rst;
-wire int_reserved6_rst;
-wire int_timer1_capt_rst;
-wire int_timer1_compa_rst;
-wire int_timer1_compb_rst;
-wire int_timer1_compc_rst;
-wire int_timer1_ovf_rst;
-wire int_timer0_compa_rst;
-wire int_timer0_compb_rst;
-wire int_timer0_ovf_rst;
-wire int_spi_stc_rst;
-wire int_usart1_rx_rst;
-wire int_usart1_udre_rst;
-wire int_usart1_tx_rst;
-wire int_analog_comp_rst;
-wire int_adc_rst;
-wire int_ee_ready_rst;
-wire int_timer3_capt_rst;
-wire int_timer3_compa_rst;
-wire int_timer3_compb_rst;
-wire int_timer3_compc_rst;
-wire int_timer3_ovf_rst;
-wire int_twi_rst;
-wire int_spm_ready_rst;
-wire int_timer4_compa_rst;
-wire int_timer4_compb_rst;
-wire int_timer4_compd_rst;
-wire int_timer4_ovf_rst;
-wire int_timer4_fpf_rst;
+wire int_int0_ack;
+wire int_int1_ack;
+wire int_int2_ack;
+wire int_int3_ack;
+wire int_reserved0_ack;
+wire int_reserved1_ack;
+wire int_int6_ack;
+wire int_reserved3_ack;
+wire int_pcint0_ack;
+wire int_usb_general_ack;
+wire int_usb_endpoint_ack;
+wire int_wdt_ack;
+wire int_reserved4_ack;
+wire int_reserved5_ack;
+wire int_reserved6_ack;
+wire int_timer1_capt_ack;
+wire int_timer1_compa_ack;
+wire int_timer1_compb_ack;
+wire int_timer1_compc_ack;
+wire int_timer1_ovf_ack;
+wire int_timer0_compa_ack;
+wire int_timer0_compb_ack;
+wire int_timer0_ovf_ack;
+wire int_spi_stc_ack;
+wire int_usart1_rx_ack;
+wire int_usart1_udre_ack;
+wire int_usart1_tx_ack;
+wire int_analog_comp_ack;
+wire int_adc_ack;
+wire int_ee_ready_ack;
+wire int_timer3_capt_ack;
+wire int_timer3_compa_ack;
+wire int_timer3_compb_ack;
+wire int_timer3_compc_ack;
+wire int_timer3_ovf_ack;
+wire int_twi_ack;
+wire int_spm_ready_ack;
+wire int_timer4_compa_ack;
+wire int_timer4_compb_ack;
+wire int_timer4_compd_ack;
+wire int_timer4_ovf_ack;
+wire int_timer4_fpf_ack;
 /* !Interrupt reset wires */
 
 /* PORTB */
@@ -547,7 +551,7 @@ atmega_spi_m # (
 	.BAUDRATE_DIVIDER(0),
 	.USE_TX("TRUE"),
 	.USE_RX("TRUE")
-)spi(
+)spi_1(
 	.rst_i(io_rst),
 	.clk_i(core_clk),
 	.addr_i(io_addr),
@@ -556,7 +560,7 @@ atmega_spi_m # (
 	.bus_i(io_out),
 	.bus_o(dat_spi_d_out),
 	.int_o(int_spi_stc),
-	.int_ack_i(int_spi_stc_rst),
+	.int_ack_i(int_spi_stc_ack),
 	.io_connect_o(spi_io_connect),
 	.io_conn_slave_o(io_conn_slave),
 
@@ -589,7 +593,7 @@ atmega_uart # (
 	.UBRRH_ADDR('hcd),
 	.USE_TX("TRUE"),
 	.USE_RX("TRUE")
-	)uart(
+	)uart_1(
 	.rst_i(io_rst),
 	.clk_i(core_clk),
 	.addr_i(io_addr),
@@ -599,11 +603,11 @@ atmega_uart # (
 	.bus_o(dat_uart0_d_out),
 	
 	.rxc_int_o(int_usart1_rx),
-	.rxc_int_ack_i(int_usart1_rx_rst),
+	.rxc_int_ack_i(int_usart1_rx_ack),
 	.txc_int_o(int_usart1_tx),
-	.txc_int_ack_i(int_usart1_tx_rst),
+	.txc_int_ack_i(int_usart1_tx_ack),
 	.udre_int_o(int_usart1_udre),
-	.udre_int_ack_i(int_usart1_udre_rst),
+	.udre_int_ack_i(int_usart1_udre_ack),
 
 	.rx_i(uart_rx),
 	.tx_o(uart_tx),
@@ -621,6 +625,42 @@ end
 endgenerate
 /* UART */
 
+/* TWI*/
+wire [7:0]dat_twi0_d_out;
+generate
+if (USE_TWI_1 == "TRUE")
+begin: TWI1
+atmega_twi #(
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.TWBR_ADDR('hb8),
+	.TWSR_ADDR('hb9),
+	.TWAR_ADDR('hba),
+	.TWDR_ADDR('hbb),
+	.TWCR_ADDR('hbc),
+	.TWAMR_ADDR('hbd)
+    )twi_1(
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_twi0_d_out),
+	.int_o(int_twi),
+	.int_ack_i(int_adc_ack),
+	
+	.scl_io(twi_scl),
+	.sda_io(twi_sda)
+    );
+end
+else
+begin
+assign dat_twi0_d_out = 8'h0;
+assign int_twi = 1'b0;
+end
+endgenerate
+/* !TWI */
 /* TIMER PRESCALLER */
 wire clk8;
 wire clk64;
@@ -643,7 +683,7 @@ if (USE_TIMER_0 == "TRUE")
 begin:TIMER0
 atmega_tim_8bit # (
 	.PLATFORM(PLATFORM),
-	.USE_OCRA("FALSE"),
+	.USE_OCRA("TRUE"),
 	.USE_OCRB("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.GTCCR_ADDR('h43),
@@ -669,11 +709,11 @@ atmega_tim_8bit # (
 	.bus_o(dat_tim0_d_out),
 	
 	.tov_int_o(int_timer0_ovf),
-	.tov_int_ack_i(int_timer0_ovf_rst),
+	.tov_int_ack_i(int_timer0_ovf_ack),
 	.ocra_int_o(int_timer0_compa),
-	.ocra_int_ack_i(int_timer0_compa_rst),
+	.ocra_int_ack_i(int_timer0_compa_ack),
 	.ocrb_int_o(int_timer0_compb),
-	.ocrb_int_ack_i(int_timer0_compb_rst),
+	.ocrb_int_ack_i(int_timer0_compb_ack),
 	
 	.t_i(),
 	.oca_o(tim0_oca),
@@ -735,13 +775,13 @@ atmega_tim_16bit # (
 	.bus_o(dat_tim1_d_out),
 	
 	.tov_int_o(int_timer1_ovf),
-	.tov_int_ack_i(int_timer1_ovf_rst),
+	.tov_int_ack_i(int_timer1_ovf_ack),
 	.ocra_int_o(int_timer1_compa),
-	.ocra_int_ack_i(int_timer1_compa_rst),
+	.ocra_int_ack_i(int_timer1_compa_ack),
 	.ocrb_int_o(int_timer1_compb),
-	.ocrb_int_ack_i(int_timer1_compb_rst),
+	.ocrb_int_ack_i(int_timer1_compb_ack),
 	.ocrc_int_o(int_timer1_compc),
-	.ocrc_int_ack_i(int_timer1_compc_rst),
+	.ocrc_int_ack_i(int_timer1_compc_ack),
 	.ocrd_int_o(),
 	.ocrd_int_ack_i(),
 	
@@ -759,6 +799,10 @@ end
 else
 begin
 assign dat_tim1_d_out = 0;
+assign int_timer1_ovf = 0;
+assign int_timer1_compa = 0;
+assign int_timer1_compb = 0;
+assign int_timer1_compc = 0;
 end
 endgenerate
 /* !TIMER 1 */
@@ -805,13 +849,13 @@ atmega_tim_16bit # (
 	.bus_o(dat_tim3_d_out),
 	
 	.tov_int_o(int_timer3_ovf),
-	.tov_int_ack_i(int_timer3_ovf_rst),
+	.tov_int_ack_i(int_timer3_ovf_ack),
 	.ocra_int_o(int_timer3_compa),
-	.ocra_int_ack_i(int_timer3_compa_rst),
+	.ocra_int_ack_i(int_timer3_compa_ack),
 	.ocrb_int_o(int_timer3_compb),
-	.ocrb_int_ack_i(int_timer3_compb_rst),
+	.ocrb_int_ack_i(int_timer3_compb_ack),
 	.ocrc_int_o(int_timer3_compc),
-	.ocrc_int_ack_i(int_timer3_compc_rst),
+	.ocrc_int_ack_i(int_timer3_compc_ack),
 	.ocrd_int_o(),
 	.ocrd_int_ack_i(),
 	
@@ -829,6 +873,10 @@ end
 else
 begin
 assign dat_tim3_d_out = 0;
+assign int_timer3_ovf = 0;
+assign int_timer3_compa = 0;
+assign int_timer3_compb = 0;
+assign int_timer3_compc = 0;
 end
 endgenerate
 /* !TIMER 3 */
@@ -904,15 +952,15 @@ atmega_tim_10bit # (
 	.bus_o(dat_tim4_d_out),
 	
 	.tov_int_o(int_timer4_ovf),
-	.tov_int_ack_i(int_timer4_ovf_rst),
+	.tov_int_ack_i(int_timer4_ovf_ack),
 	.ocra_int_o(int_timer4_compa),
-	.ocra_int_ack_i(int_timer4_compa_rst),
+	.ocra_int_ack_i(int_timer4_compa_ack),
 	.ocrb_int_o(int_timer4_compb),
-	.ocrb_int_ack_i(int_timer4_compb_rst),
+	.ocrb_int_ack_i(int_timer4_compb_ack),
 	.ocrc_int_o(),
 	.ocrc_int_ack_i(),
 	.ocrd_int_o(int_timer4_compd),
-	.ocrd_int_ack_i(int_timer4_compd_rst),
+	.ocrd_int_ack_i(int_timer4_compd_ack),
 	
 	.t_i(),
 	.oca_o(tim4_oca),
@@ -932,6 +980,10 @@ end
 else
 begin
 assign dat_tim4_d_out = 0;
+assign int_timer4_ovf = 0;
+assign int_timer4_compa = 0;
+assign int_timer4_compb = 0;
+assign int_timer4_compd = 0;
 end
 endgenerate
 /* !TIMER 4 */
@@ -960,7 +1012,7 @@ atmega_eep # (
 	.bus_o(dat_eeprom_d_out),
 	
 	.int_o(int_ee_ready),
-	.int_rst_i(int_ee_ready_rst),
+	.int_ack_i(int_ee_ready_ack),
 
 	.ext_eep_addr_i(),
 	.ext_eep_data_i(),
@@ -1021,7 +1073,7 @@ endgenerate
 
 `define BOOT_STAT_FLASH_APP_NR		0
 `define BOOT_STAT_EEP_EDITED		1
-`define BOOT_STAT_BOOT_APP_RUNNING	2
+`define BOOT_STAT_NMI_INT_ENABLE	2
 `define BOOT_STAT_APP_PGM_WR_EN		3
 `define BOOT_STAT_IO_RST			4
 `define BOOT_STAT_DEBUG_EN			7
@@ -1102,6 +1154,7 @@ end
 
 //assign sec_en = SEC_REG == ~SEC_REG0 & SEC_REG != 0 & SEC_REG != 8'hFF;
 assign io_rst = BOOT_STAT[`BOOT_STAT_IO_RST] | core_rst;
+assign nmi_rst = ~BOOT_STAT[`BOOT_STAT_NMI_INT_ENABLE];
 
 
 /* BOOT APP */
@@ -1116,7 +1169,7 @@ mega_rom  #(
 	.ROM_PATH(ROM_PATH)
 )rom(
 	.clk(core_clk),
-	.a(pgm_addr[9:0]),
+	.a(pgm_addr[BOOT_ADDR_WIDTH - 1:0]),
 	.cs(boot_rom_select_del),
 	.d(pgm_data_boot)
 );
@@ -1133,7 +1186,7 @@ mega_ram  #(
 	.ADDR_BUS_WIDTH(ROM_ADDR_WIDTH == 15 ? 14: ROM_ADDR_WIDTH),
 	.ADDR_RAM_DEPTH(2 ** (ROM_ADDR_WIDTH == 15 ? 14: ROM_ADDR_WIDTH)),
 	.DATA_BUS_WIDTH(16),
-	.RAM_PATH("")
+	.RAM_PATH(ROM_PATH)
 )rom_app(
 	.clk(core_clk),
 	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
@@ -1217,7 +1270,7 @@ mega_ram  #(
 
 /* DATA BUS IN DEMULTIPLEXER */
 io_bus_dmux #(
-	.NR_OF_BUSSES_IN(18)
+	.NR_OF_BUSSES_IN(19)
 	)
 	ram_bus_dmux_inst(
 	.bus_in({
@@ -1238,14 +1291,15 @@ io_bus_dmux #(
 	dat_pll_d_out,
 	dat_eeprom_d_out,
 	dat_uart0_d_out,
-	dat_adc_d_out
+	dat_adc_d_out,
+	dat_twi0_d_out
 	}),
 	.bus_out(core_data_in)
 	);
 /* !DATA BUS IN DEMULTIPLEXER */
 
 /* ATMEGA CORE */
-
+ 
 mega # (
 	.PLATFORM(PLATFORM),
 	.CORE_TYPE(CORE_TYPE),
@@ -1254,7 +1308,7 @@ mega # (
 	.RAM_ADDR_WIDTH(BUS_ADDR_DATA_LEN),
 	.WATCHDOG_CNT_WIDTH(WATCHDOG_CNT_WIDTH),/* If is 0 the watchdog is disabled */
 	.VECTOR_INT_TABLE_SIZE(VECTOR_INT_TABLE_SIZE),/* If is 0 the interrupt module is disabled */
-	.NMI_VECTOR(16'hFC01),
+	.NMI_VECTOR(BOOT_ADDR + 16'h0001),
 	.REGS_REGISTERED(REGS_REGISTERED)
 	)atmega32u4_inst(
 	.rst(core_rst),
@@ -1296,27 +1350,27 @@ mega # (
 	nmi_sig}
 	),
 	// Interrupt reset lines going to all IO's.
-	.int_rst({
-	int_timer4_fpf_rst, int_timer4_ovf_rst, int_timer4_compd_rst, int_timer4_compb_rst, int_timer4_compa_rst,
-	int_spm_ready_rst,
-	int_twi_rst,
-	int_timer3_ovf_rst, int_timer3_compc_rst, int_timer3_compb_rst, int_timer3_compa_rst, int_timer3_capt_rst,
-	int_ee_ready_rst,
-	int_adc_rst,
-	int_analog_comp_rst,
-	int_usart1_tx_rst, int_usart1_udre_rst, int_usart1_rx_rst,
-	int_spi_stc_rst,
-	int_timer0_ovf_rst, int_timer0_compb_rst, int_timer0_compa_rst,
-	int_timer1_ovf_rst, int_timer1_compc_rst, int_timer1_compb_rst, int_timer1_compa_rst, int_timer1_capt_rst, 
-	int_reserved6_rst, int_reserved5_rst, int_reserved4_rst,
-	int_wdt_rst,
-	int_usb_endpoint_rst, int_usb_general_rst,
-	int_pcint0_rst,
-	int_reserved3_rst,
-	int_int6_rst,
-	int_reserved1_rst, int_reserved0_rst,
-	int_int3_rst, int_int2_rst, int_int1_rst, int_int0_rst,
-	nmi_rst}
+	.int_ack({
+	int_timer4_fpf_ack, int_timer4_ovf_ack, int_timer4_compd_ack, int_timer4_compb_ack, int_timer4_compa_ack,
+	int_spm_ready_ack,
+	int_twi_ack,
+	int_timer3_ovf_ack, int_timer3_compc_ack, int_timer3_compb_ack, int_timer3_compa_ack, int_timer3_capt_ack,
+	int_ee_ready_ack,
+	int_adc_ack,
+	int_analog_comp_ack,
+	int_usart1_tx_ack, int_usart1_udre_ack, int_usart1_rx_ack,
+	int_spi_stc_ack,
+	int_timer0_ovf_ack, int_timer0_compb_ack, int_timer0_compa_ack,
+	int_timer1_ovf_ack, int_timer1_compc_ack, int_timer1_compb_ack, int_timer1_compa_ack, int_timer1_capt_ack, 
+	int_reserved6_ack, int_reserved5_ack, int_reserved4_ack,
+	int_wdt_ack,
+	int_usb_endpoint_ack, int_usb_general_ack,
+	int_pcint0_ack,
+	int_reserved3_ack,
+	int_int6_ack,
+	int_reserved1_ack, int_reserved0_ack,
+	int_int3_ack, int_int2_ack, int_int1_ack, int_int0_ack,
+	nmi_ack}
 	)
 );
 /* !ATMEGA CORE */

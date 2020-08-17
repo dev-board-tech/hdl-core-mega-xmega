@@ -83,8 +83,8 @@ begin
 		end
 		`INSTRUCTION_MULS:
 		begin
-			mul_a[7] = 1'b0;
-			mul_b[7] = 1'b0;
+			mul_a = {1'b0, rd[7] ? 128 - rd[6:0] : rd[6:0]};
+			mul_b = {1'b0, rr[7] ? 128 - rr[6:0] : rr[6:0]};
 			if(COMASATE_MUL != "TRUE")
 				R = mul_result_s_int;
 			else
@@ -94,7 +94,7 @@ begin
 		end
 		`INSTRUCTION_MULSU:
 		begin
-			mul_a[7] = 1'b0;
+			mul_a[7] = {1'b0, rd[7] ? 128 - rd[6:0] : rd[6:0]};
 			if(COMASATE_MUL != "TRUE")
 				R = mul_result_s_u_int;
 			else
@@ -109,8 +109,8 @@ begin
 		end
 		`INSTRUCTION_FMULS:
 		begin
-			mul_a[7] = 1'b0;
-			mul_b[7] = 1'b0;
+			mul_a = {1'b0, rd[7] ? 128 - rd[6:0] : rd[6:0]};
+			mul_b = {1'b0, rr[7] ? 128 - rr[6:0] : rr[6:0]};
 			if(COMASATE_MUL != "TRUE")
 				{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_int, 1'b0};
 			else
@@ -119,7 +119,7 @@ begin
 		end
 		`INSTRUCTION_FMULSU:
 		begin
-			mul_a[7] = 1'b0;
+			mul_a = {1'b0, rd[7] ? 128 - rd[6:0] : rd[6:0]};
 			if(COMASATE_MUL != "TRUE")
 				{sreg_out[`XMEGA_FLAG_C], R} = {mul_result_s_u_int, 1'b0};
 			else

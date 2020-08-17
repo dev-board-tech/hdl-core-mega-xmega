@@ -168,7 +168,7 @@ module mega #(
 	input [7:0]data_in,
 	output reg data_read,
 	input [(VECTOR_INT_TABLE_SIZE == 0 ? 0 : VECTOR_INT_TABLE_SIZE - 1):0]int_sig,
-	output reg [(VECTOR_INT_TABLE_SIZE == 0 ? 0 : VECTOR_INT_TABLE_SIZE - 1):0]int_rst
+	output reg [(VECTOR_INT_TABLE_SIZE == 0 ? 0 : VECTOR_INT_TABLE_SIZE - 1):0]int_ack
     );
 
 reg wdt_rst_out;
@@ -272,7 +272,7 @@ always @ *
 begin
 	pgm_data_int = pgm_data;
 	int_registered = 1'b0;
-	int_rst = 0;
+	int_ack = 0;
 	if(VECTOR_INT_TABLE_SIZE != 0)
 	begin
 		if(&{~skip_next_clock})
@@ -285,7 +285,7 @@ begin
 					//current_int_vect_registered = current_int_vect_request;
 					pgm_data_int = 16'b1001010000001110;
 					int_registered = 1'b1;
-					int_rst = 1'b1 << (current_int_vect_request - 1);
+					int_ack = 1'b1 << (current_int_vect_request - 1);
 					//PC_SNAPSHOOT = PC;
 					//end
 				end
@@ -431,7 +431,7 @@ initial begin
 	data_addr_int = 'h00000000;
 	data_out_int = 8'h00;
 	PC_TMP_H_CALL = 8'h00;
-	int_rst = 1'b0;
+	int_ack = 1'b0;
 end
 
 reg pgm_dat_rst;
