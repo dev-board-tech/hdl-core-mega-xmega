@@ -20,16 +20,15 @@
 
 `timescale 1ns / 1ps
 
-`define REV							"1.0"
+`define REV							"1.1"
 
-`define COMASATE_MUL				"TRUE"
+`define PLATFORM					"XILINX"
+`define FLASH_ROM_FILE_NAME			"Breakout-v.Division"
 
-`define PLATFORM				"XILINX"
-`define FLASH_ROM_FILE_NAME		"l1_boot_ld"
+`define USE_EXTERNAL_SSD1306		"FALSE"
+`define USE_SSD1306_REGISTERED_RAM	"TRUE"
 
-`define USE_PIO_A	"FALSE"
-`define USE_SPI_2	"FALSE"
-`define USE_EXTERNAL_SSD1306	"FALSE"
+`include "mega-def.v"
 
 module arduboy_top # (
 	parameter SIMULATE = "FALSE"
@@ -60,11 +59,13 @@ module arduboy_top # (
 
 reg rst_reg;
 wire pll_locked;
-wire sys_rst = ~rst_reg | ~pll_locked;
+wire pll_hdmi_locked;
+wire sys_rst = ~rst_reg | ~pll_locked | ~pll_hdmi_locked;
 wire sys_clk;// = clk;
 wire pll_clk;// = clk;
 wire hdmi_clk;// = clk;
 wire clkfb;
+wire clkfb_hdmi;
 
 
 PLLE2_BASE #(
@@ -75,7 +76,7 @@ PLLE2_BASE #(
 	// CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for each CLKOUT (1-128)
 	.CLKOUT0_DIVIDE(100), // Core clock 16Mhz.
 	.CLKOUT1_DIVIDE(8), // PLL clock ~192Mhz.
-	.CLKOUT2_DIVIDE(4), // HDMI clock.
+	.CLKOUT2_DIVIDE(1), // HDMI clock.
 	.CLKOUT3_DIVIDE(1),
 	.CLKOUT4_DIVIDE(1),
 	.CLKOUT5_DIVIDE(1),
@@ -97,11 +98,11 @@ PLLE2_BASE #(
 	.REF_JITTER1(0.0),			// Reference input jitter in UI, (0.000-0.999).
 	.STARTUP_WAIT("TRUE")		// Delay DONE until PLL Locks, ("TRUE"/"FALSE")
 )
-PLLE2_BASE_inst (
+PLLE2_CORE_BASE_inst (
 	// Clock Outputs: 1-bit (each) output: User configurable clock outputs
 	.CLKOUT0(sys_clk),			// 1-bit output: CLKOUT0
 	.CLKOUT1(pll_clk),			// 1-bit output: CLKOUT1
-	.CLKOUT2(hdmi_clk),			// 1-bit output: CLKOUT2
+	.CLKOUT2(),			// 1-bit output: CLKOUT2
 	.CLKOUT3(),					// 1-bit output: CLKOUT3
 	.CLKOUT4(),					// 1-bit output: CLKOUT4
 	.CLKOUT5(),					// 1-bit output: CLKOUT5
@@ -114,6 +115,55 @@ PLLE2_BASE_inst (
 	.RST(~rst),					// 1-bit input: Reset
 	// Feedback Clocks: 1-bit (each) input: Clock feedback ports
 	.CLKFBIN(clkfb)				// 1-bit input: Feedback clock
+);
+
+PLLE2_BASE #(
+	.BANDWIDTH("OPTIMIZED"),	// OPTIMIZED, HIGH, LOW
+	.CLKFBOUT_MULT(15),			// Multiply value for all CLKOUT, (2-64)
+	.CLKFBOUT_PHASE(0.0),		// Phase offset in degrees of CLKFB, (-360.000-360.000).
+	.CLKIN1_PERIOD(10.0),		// Input clock period in ns to ps resolution (i.e. 33.333 is 30 MHz).
+	// CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for each CLKOUT (1-128)
+	.CLKOUT0_DIVIDE(4), // Core clock 16Mhz.
+	.CLKOUT1_DIVIDE(1), // PLL clock ~192Mhz.
+	.CLKOUT2_DIVIDE(1), // HDMI clock.
+	.CLKOUT3_DIVIDE(1),
+	.CLKOUT4_DIVIDE(1),
+	.CLKOUT5_DIVIDE(1),
+	// CLKOUT0_DUTY_CYCLE - CLKOUT5_DUTY_CYCLE: Duty cycle for each CLKOUT (0.001-0.999).
+	.CLKOUT0_DUTY_CYCLE(0.5),
+	.CLKOUT1_DUTY_CYCLE(0.5),
+	.CLKOUT2_DUTY_CYCLE(0.5),
+	.CLKOUT3_DUTY_CYCLE(0.5),
+	.CLKOUT4_DUTY_CYCLE(0.5),
+	.CLKOUT5_DUTY_CYCLE(0.5),
+	// CLKOUT0_PHASE - CLKOUT5_PHASE: Phase offset for each CLKOUT (-360.000-360.000).
+	.CLKOUT0_PHASE(0.0),
+	.CLKOUT1_PHASE(0.0),
+	.CLKOUT2_PHASE(0.0),
+	.CLKOUT3_PHASE(0.0),
+	.CLKOUT4_PHASE(0.0),
+	.CLKOUT5_PHASE(0.0),
+	.DIVCLK_DIVIDE(1),			// Master division value, (1-56)
+	.REF_JITTER1(0.0),			// Reference input jitter in UI, (0.000-0.999).
+	.STARTUP_WAIT("TRUE")		// Delay DONE until PLL Locks, ("TRUE"/"FALSE")
+)
+PLLE2_HDMI_BASE_inst (
+	// Clock Outputs: 1-bit (each) output: User configurable clock outputs
+	.CLKOUT0(hdmi_clk),			// 1-bit output: CLKOUT0
+	.CLKOUT1(),			// 1-bit output: CLKOUT1
+	.CLKOUT2(),			// 1-bit output: CLKOUT2
+	.CLKOUT3(),					// 1-bit output: CLKOUT3
+	.CLKOUT4(),					// 1-bit output: CLKOUT4
+	.CLKOUT5(),					// 1-bit output: CLKOUT5
+	// Feedback Clocks: 1-bit (each) output: Clock feedback ports
+	.CLKFBOUT(clkfb_hdmi),			// 1-bit output: Feedback clock
+	.LOCKED(pll_hdmi_locked),		// 1-bit output: LOCK
+	.CLKIN1(clk),				// 1-bit input: Input clock
+	// Control Ports: 1-bit (each) input: PLL control ports
+	.PWRDWN(),					// 1-bit input: Power-down
+	.RST(~rst),					// 1-bit input: Reset
+	// Feedback Clocks: 1-bit (each) input: Clock feedback ports
+	.CLKFBIN(clkfb_hdmi)				// 1-bit input: Feedback clock
 );
 
 always @ (posedge sys_clk) 
@@ -157,18 +207,16 @@ wire [31:0]ssd1306_rgb_data;
 generate
 if (`USE_EXTERNAL_SSD1306 != "TRUE" && SIMULATE != "TRUE")
 begin
-vga #(
-	.MASTER("TRUE"),
+vga_simple #(
+	//.MASTER("TRUE"),
 	.DEBUG(""),//"PATERN_RASTER"
-	.DISPLAY_CFG("1280_720_60_DISPLAY_74_25_Mhz"),
+	.DISPLAY_CFG("1920_1080_30_DISPLAY_74_25_Mhz"),
+	.VRAM_BUFFERED_OUTPUT(`USE_SSD1306_REGISTERED_RAM),
 	
 	.ADDRESS(0),
 	.BUS_VRAM_ADDR_LEN(24),
-	.BUS_VRAM_DATA_LEN(8),
-	.BUS_ADDR_DATA_LEN(16),
+	.PIXEL_SIZE_CONF(1),
 	
-	.DINAMIC_CONFIG("FALSE"),
-	.VRAM_BASE_ADDRESS_CONF(0),
 	.H_RES_CONF(800),
 	.H_BACK_PORCH_CONF(46),
 	.H_FRONT_PORCH_CONF(210),
@@ -177,40 +225,28 @@ vga #(
 	.V_BACK_PORCH_CONF(23),
 	.V_FRONT_PORCH_CONF(22),
 	.V_PULSE_WIDTH_CONF(2),
-	.PIXEL_SIZE_CONF(24),
 	.HSYNK_INVERTED_CONF(1'b1),
 	.VSYNK_INVERTED_CONF(1'b1),
 	.DATA_ENABLE_INVERTED_CONF(1'b0),
-
-	.DEDICATED_VRAM_SIZE(0),
 	
-	.FIFO_DEPTH(256)
+	.COLOR_INVERTED("FALSE"),
+
+	.DEDICATED_VRAM_SIZE(0)
 )vga_inst(
-	.rst(sys_rst),
-	.ctrl_clk(),
-    .ctrl_addr(),
-	.ctrl_wr(),
-	.ctrl_rd(),
-	.ctrl_data_in(),
-	.ctrl_data_out(),
+	.rst_i(sys_rst),
 
-	.vmem_addr(),
-	.vmem_in(),
-	.vmem_out(),
-	.vmem_rd(),
-	.vmem_wr(),
+	.lcd_clk_i(lcd_clk),
+	.lcd_h_synk_o(lcd_h),
+	.lcd_v_synk_o(lcd_v),
+	.lcd_r_o(lcd_r),
+	.lcd_g_o(lcd_g),
+	.lcd_b_o(lcd_b),
+	.lcd_de_o(lcd_de),
 	
-	.lcd_clk(lcd_clk),
-	.lcd_h_synk(lcd_h),
-	.lcd_v_synk(lcd_v),
-	.lcd_r(lcd_r),
-	.lcd_g(lcd_g),
-	.lcd_b(lcd_b),
-	.lcd_de(lcd_de),
-	
-	.h_cnt_out(lcd_h_cnt),
-	.v_cnt_out(lcd_v_cnt),
-	.color_data_in(ssd1306_rgb_data)
+	.vram_addr_o(),
+	.h_pos_o(lcd_h_cnt),
+	.v_pos_o(lcd_v_cnt),
+	.video_data_i(ssd1306_rgb_data)
 
 );
 
@@ -240,30 +276,27 @@ hdmi_out #(
 ssd1306 # (
 	.X_OLED_SIZE(128),
 	.Y_OLED_SIZE(64),
-	.X_PARENT_SIZE(1280),
-	.Y_PARENT_SIZE(720),
-	.RENDER_D_OUT_BUFFERED("TRUE"),
+	.X_PARENT_SIZE(1920),
+	.Y_PARENT_SIZE(1080),
 	.PIXEL_INACTIVE_COLOR(32'h10101010),
 	.PIXEL_ACTIVE_COLOR(32'hE0E0E0E0),
-	.INACTIVE_DISPLAY_COLOR(32'h10101010)
+	.INACTIVE_DISPLAY_COLOR(32'h10101010),
+	.VRAM_BUFFERED_OUTPUT(`USE_SSD1306_REGISTERED_RAM),
+	.FULL_COLOR_OUTPUT("FALSE")
 	)ssd1306_inst(
-	.rst(~ja[5]),
-	.clk(sys_clk),
+	.rst_i(~ja[5]),
+	.clk_i(sys_clk),
 	
-	.edge_color(32'h00808080),
-	.render_clk_in(sys_clk),
-	.render_x_in(lcd_h_cnt),
-	.render_y_in(lcd_v_cnt),
-	.raster_clk(lcd_clk),
-	.raster_h_synk(lcd_h),
-	.raster_v_synk(lcd_v),
-	.raster_de(lcd_de),
-	.render_d_out(ssd1306_rgb_data),
+	.edge_color_i(32'h00808080),
+	.raster_x_i(lcd_h_cnt),
+	.raster_y_i(lcd_v_cnt),
+	.raster_clk_i(lcd_clk),
+	.raster_d_o(ssd1306_rgb_data),
 	
-	.ss(ja[4]),
-	.scl(ja[2]),
-	.mosi(ja[1]),
-	.dc(ja[3])
+	.ss_i(ja[4]),
+	.scl_i(ja[2]),
+	.mosi_i(ja[1]),
+	.dc_i(ja[3])
     );
 end// !(USE_EXTERNAL_SSD1306 != "TRUE" && SIMULATE != "TRUE")
 endgenerate
@@ -279,9 +312,24 @@ wire io_read;
 
 wire nmi_sig = 0;
 
+wire uSD_CD = 0;
+wire MISO = 0;
+
 atmega32u4_arduboy # (
 	.PLATFORM(`PLATFORM),
-	.BOOT_ADDR(16'hFC00),
+	//.BOOT_ADDR(16'hF800),
+
+	.CORE_TYPE(`MEGA_ENHANCED_128K),
+	.ROM_ADDR_WIDTH(15), // 14 = 16K Words / 32K Bytes; 15 = 32K Words / 64K Bytes; 16 = 64K Words / 128K Bytes Not supported yet.
+	.BOOT_ADDR_WIDTH(10), // 1024 Words / 2048 Bytes, how big the first stage boot-loader ROM to be.
+	.BUS_ADDR_DATA_LEN(16), // Max 64K Bytes.
+	.RAM_TYPE("SRAM"),  // "BLOCK","SRAM"// If "SRAM" is choosen, will be a 32KB block of RAM.
+	.RAM_ADDR_WIDTH(15), // 32KB, if you use "SRAM" this value need to be 15.
+	.EEP_ADDR_WIDTH(10), // 1K Bytes.
+	.RESERVED_RAM_FOR_IO(12'h100), // Lowest 256 Bytes of RAM addresses are reserved for IO's.
+	.VECTOR_INT_TABLE_SIZE(43),// 42 of original ATmega32U4 + NMI
+	.WATCHDOG_CNT_WIDTH(0),//27 // We do not use watchdog, is not a critical design and most of arduboy games does not use him.
+
 	.ARDU_FPGA_ICE40UP5K_GAME("FALSE"),
 	.REGS_REGISTERED("FALSE"),
 	.ROM_PATH(`FLASH_ROM_FILE_NAME),
@@ -298,19 +346,18 @@ atmega32u4_arduboy # (
 	.USE_TIMER_4("TRUE"),
 	.USE_SPI_1("TRUE"),
 	.USE_UART_1("TRUE"),
+	.USE_TWI_1("TRUE"),
 	.USE_EEPROM("TRUE"),
-	.USE_RNG_AS_ADC("TRUE"),
-	.TIMER_INCREMENT_VALUE(1),
-	.COMASATE_MUL(`COMASATE_MUL)
+	.USE_RNG_AS_ADC("TRUE")
 ) atmega32u4_arduboy_inst (
 	.core_rst(sys_rst),
 	.dev_rst(sys_rst),
 	.clk(sys_clk),
 	.clk_pll(pll_clk),
 	.nmi_sig(nmi_sig),
-	.nmi_rst(nmi_rst),
+	.nmi_ack(nmi_ack),
 
-    .buttons({SW[0], btnc, btnl, btnr, btnd, btnu}),
+    .buttons({~SW[0], ~btnc, ~btnl, ~btnr, ~btnd, ~btnu}),
     .RGB({ld2, ld1, ld0}),
     .Buzzer1(ja[6]),
     .Buzzer2(ja[7]),
@@ -319,15 +366,30 @@ atmega32u4_arduboy # (
     .OledRST(ja[5]),
     .spi_scl(ja[2]),
     .spi_mosi(ja[1]),
+	.spi_miso(MISO),
+	.uSD_CS(uSD_SS),
+	.uSD_CD(uSD_CD),
+	.ADC_CS(ADC_SS),
+	.VS_RST(),
+	.VS_xCS(),
+	.VS_xDCS(),
+	.VS_DREQ(),
+	.uart_tx(),
+	.uart_rx(),
+	.twi_scl(),
+	.twi_sda(),
 
 	.io_addr(io_addr),
 	.io_out(io_out),
 	.io_write(io_write),
 	.io_in(io_in),
-	.io_read(io_read)
+	.io_read(io_read),
+	.io_sel(ram_sel),
+	//.io_rst(io_rst),
+	.nmi_rst()
 );
 
-assign LED[3:0] = {ld2, ld1, ld0};
+assign LED[2:0] = {ld2, ld1, ld0};
 assign halt = SW[7];
 
 assign io_in = 0;
