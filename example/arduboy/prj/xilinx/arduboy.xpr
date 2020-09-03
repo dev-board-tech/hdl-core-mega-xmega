@@ -149,6 +149,13 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/interlaced-ntsc.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PPRDIR/../../../../../hdl-core-common/util/io-dmux.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -205,14 +212,14 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/vga-to-hdmi_out.v">
+      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/vga-simple.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/vga_simple.v">
+      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/vga-to-hdmi_out.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -227,6 +234,14 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../../../../mega-debug-mem-sel.v">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../../../../../hdl-core-common/io-screen/screen-scaller.v">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>

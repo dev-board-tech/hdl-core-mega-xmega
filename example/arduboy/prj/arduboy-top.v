@@ -25,6 +25,8 @@
 `define PLATFORM					"XILINX"
 `define FLASH_ROM_FILE_NAME			"Breakout-v.Division"
 
+`define USE_HDMI_OUTPUT				"FALSE"
+
 `define USE_EXTERNAL_SSD1306		"FALSE"
 `define USE_SSD1306_REGISTERED_RAM	"TRUE"
 
@@ -36,6 +38,7 @@ module arduboy_top # (
 	input rst,
 	input clk,
 	inout [7:0]ja, // ja[7]=Buzzer2, ja[6]=Buzzer1, ja[5]=OledRst, ja[4]=OledCS, ja[3]=OledDC, ja[2]=OledSCL, ja[1]=OledMOSI
+	output [1:0]jb,
 	inout [7:0]LED, // LED[0] = Green, LED[1] = RED, LED[2] = BLUE, 
 	inout [7:0]SW,// SW[0] = Button B
 	inout btnc,// Button A
@@ -44,8 +47,8 @@ module arduboy_top # (
 	inout btnr,// Button Right
 	inout btnu, // Button Up
 	inout UART_TXD,
-	inout UART_RXD,
-	
+	inout UART_RXD/*,
+
 	output hdmi_tx_cec,
 	output hdmi_tx_clk_n,
 	output hdmi_tx_clk_p,
@@ -53,7 +56,7 @@ module arduboy_top # (
 	output hdmi_tx_rscl,
 	inout hdmi_tx_rsda,
 	output [2:0]hdmi_tx_n,
-	output [2:0]hdmi_tx_p
+	output [2:0]hdmi_tx_p*/
 );
 
 
@@ -66,6 +69,7 @@ wire pll_clk;// = clk;
 wire hdmi_clk;// = clk;
 wire clkfb;
 wire clkfb_hdmi;
+wire ntsc_clk;
 
 
 PLLE2_BASE #(
@@ -123,9 +127,9 @@ PLLE2_BASE #(
 	.CLKFBOUT_PHASE(0.0),		// Phase offset in degrees of CLKFB, (-360.000-360.000).
 	.CLKIN1_PERIOD(10.0),		// Input clock period in ns to ps resolution (i.e. 33.333 is 30 MHz).
 	// CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for each CLKOUT (1-128)
-	.CLKOUT0_DIVIDE(4), // Core clock 16Mhz.
-	.CLKOUT1_DIVIDE(1), // PLL clock ~192Mhz.
-	.CLKOUT2_DIVIDE(1), // HDMI clock.
+	.CLKOUT0_DIVIDE(4), // HDMI clock 375Mhz.
+	.CLKOUT1_DIVIDE(32), // NTSC clock 50Mhz.
+	.CLKOUT2_DIVIDE(1),
 	.CLKOUT3_DIVIDE(1),
 	.CLKOUT4_DIVIDE(1),
 	.CLKOUT5_DIVIDE(1),
@@ -150,7 +154,7 @@ PLLE2_BASE #(
 PLLE2_HDMI_BASE_inst (
 	// Clock Outputs: 1-bit (each) output: User configurable clock outputs
 	.CLKOUT0(hdmi_clk),			// 1-bit output: CLKOUT0
-	.CLKOUT1(),			// 1-bit output: CLKOUT1
+	.CLKOUT1(ntsc_clk),			// 1-bit output: CLKOUT1
 	.CLKOUT2(),			// 1-bit output: CLKOUT2
 	.CLKOUT3(),					// 1-bit output: CLKOUT3
 	.CLKOUT4(),					// 1-bit output: CLKOUT4
@@ -206,6 +210,8 @@ wire [31:0]ssd1306_rgb_data;
 
 generate
 if (`USE_EXTERNAL_SSD1306 != "TRUE" && SIMULATE != "TRUE")
+begin
+if(`USE_HDMI_OUTPUT == "TRUE")
 begin
 vga_simple #(
 	//.MASTER("TRUE"),
@@ -272,12 +278,41 @@ hdmi_out #(
 	.lcd_b(lcd_b),
 	.lcd_de(lcd_de)
 	);
+end
+else /* (`USE_HDMI_OUTPUT != "TRUE") */
+begin
+
+wire pixel_is_visible;
+wire [1:0]ntsc_out;
+
+localparam [3:0]  SIGNAL_LEVEL_SYNC         = 4'b0000,
+                    SIGNAL_LEVEL_BLANK        = 4'b0001,
+                    SIGNAL_LEVEL_DARK_GREY    = 4'b0011,
+                    SIGNAL_LEVEL_LIGHT_GREY   = 4'b0111,
+                    SIGNAL_LEVEL_WHITE        = 4'b1111;
+
+interlaced_ntsc # (
+	.PIXEL_NUANCE_DEPTH(1)
+	)interlaced_ntsc_inst(
+    .rst_i(sys_rst),
+    .clk_i(ntsc_clk),
+    .pixel_data_i(pixel_is_visible ? (ssd1306_rgb_data[0] ? SIGNAL_LEVEL_WHITE : SIGNAL_LEVEL_BLANK) : SIGNAL_LEVEL_BLANK),
+    .h_sync_out_o(), // single clock tick indicating pixel_y will incrememt on next clock (for debugging)
+    .v_sync_out_o(), // single clock tick indicating pixel_y will reset to 0 or 1 on next clock, depending on the field (for debugging)
+    .pixel_y_o(lcd_v_cnt),    // which line
+    .pixel_x_o(lcd_h_cnt),
+    .pixel_is_visible_o(pixel_is_visible),
+    .ntsc_out_o(ntsc_out)
+);
+
+assign jb = ntsc_out;
+end
 
 ssd1306 # (
 	.X_OLED_SIZE(128),
 	.Y_OLED_SIZE(64),
-	.X_PARENT_SIZE(1920),
-	.Y_PARENT_SIZE(1080),
+	.X_PARENT_SIZE((`USE_HDMI_OUTPUT != "TRUE") ? 560 : 1920),
+	.Y_PARENT_SIZE((`USE_HDMI_OUTPUT != "TRUE") ? 400 : 1080),
 	.PIXEL_INACTIVE_COLOR(32'h10101010),
 	.PIXEL_ACTIVE_COLOR(32'hE0E0E0E0),
 	.INACTIVE_DISPLAY_COLOR(32'h10101010),
@@ -290,7 +325,7 @@ ssd1306 # (
 	.edge_color_i(32'h00808080),
 	.raster_x_i(lcd_h_cnt),
 	.raster_y_i(lcd_v_cnt),
-	.raster_clk_i(lcd_clk),
+	.raster_clk_i((`USE_HDMI_OUTPUT != "TRUE") ? ntsc_clk : lcd_clk),
 	.raster_d_o(ssd1306_rgb_data),
 	
 	.ss_i(ja[4]),

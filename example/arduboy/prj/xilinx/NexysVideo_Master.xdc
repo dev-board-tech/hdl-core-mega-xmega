@@ -148,8 +148,8 @@ set_property -dict {PACKAGE_PIN AA18 IOSTANDARD LVCMOS33} [get_ports {ja[7]}]
 
 
 ## Pmod header JB
-#set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports {jb[0]}]
-#set_property -dict {PACKAGE_PIN V8 IOSTANDARD LVCMOS33} [get_ports {jb[1]}]
+set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports {jb[0]}]
+set_property -dict {PACKAGE_PIN V8 IOSTANDARD LVCMOS33} [get_ports {jb[1]}]
 #set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports {jb[2]}]
 #set_property -dict {PACKAGE_PIN W7 IOSTANDARD LVCMOS33} [get_ports {jb[3]}]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports {jb[4]}]
