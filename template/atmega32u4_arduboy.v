@@ -146,7 +146,7 @@ wire ram_sel = |data_addr[BUS_ADDR_DATA_LEN-1:8];
 wire boot_ram_sel = &data_addr[BUS_ADDR_DATA_LEN-1:9];
 wire app_ram_sel = ram_sel & ~boot_ram_sel;
 
-wire boot_rom_select = &pgm_addr[ROM_ADDR_WIDTH - 1 : BOOT_ADDR_WIDTH];
+wire boot_rom_select = &pgm_addr[14 : BOOT_ADDR_WIDTH];
 
 assign io_addr = data_addr[7:0];
 assign io_out = core_data_out;
@@ -390,11 +390,11 @@ atmega_pio # (
 	.PORT_OUT_ADDR('h28),
 	.DDR_ADDR('h27),
 	.PIN_ADDR('h26),
-	.PINMASK(8'b11100000),
+	.PINMASK(8'b11000000),
 	.PULLUP_MASK(8'b00000000),
 	.PULLDN_MASK(8'b00000000),
 	.INVERSE_MASK(8'b00000000),
-	.OUT_ENABLED_MASK(8'b11100000),
+	.OUT_ENABLED_MASK(8'b11000000),
 	.INITIAL_OUTPUT_VALUE(8'b00000000),
 	.INITIAL_DIR_VALUE(8'b00000000)
 )pio_c(
@@ -1176,8 +1176,8 @@ mega_rom  #(
  
 /* ROM APP */
 wire[ROM_ADDR_WIDTH-1:0]rom_addr = BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? {F_CNT_H[6:0], F_CNT_L}: pgm_addr[ROM_ADDR_WIDTH-1:0];
-reg ram_cs_del;
-always @ (posedge clk) ram_cs_del <= rom_addr[14];
+reg rom_cs_del;
+always @ (posedge clk) rom_cs_del <= rom_addr[14];
 wire [15:0]pgm_data_app;
 wire [15:0]pgm_data_app1;
 mega_ram  #(
@@ -1190,8 +1190,8 @@ mega_ram  #(
 )rom_app(
 	.clk(core_clk),
 	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
-	.re(ROM_ADDR_WIDTH == 14 ? 1'b1 : ~ram_cs_del),
-	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
+	.re(ROM_ADDR_WIDTH == 14 ? ~boot_rom_select_del : ~rom_cs_del),
+	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? (pgm_wr_en & ~rom_addr[14]) : 1'b0),
 	.a(rom_addr[13:0]),
 	.d_in({F_DATA_H, F_DATA_L}),
 	.d_out(pgm_data_app1)
@@ -1211,8 +1211,8 @@ mega_ram  #(
 )rom_app2(
 	.clk(core_clk),
 	.cs(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] | ~boot_rom_select_del),
-	.re(ram_cs_del),
-	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? pgm_wr_en : 1'b0),
+	.re(rom_cs_del),
+	.we(BOOT_STAT[`BOOT_STAT_APP_PGM_WR_EN] ? (pgm_wr_en & rom_addr[14]) : 1'b0),
 	.a(rom_addr[13:0]),
 	.d_in({F_DATA_H, F_DATA_L}),
 	.d_out(pgm_data_app2)
