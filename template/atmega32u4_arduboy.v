@@ -97,7 +97,10 @@ module atmega32u4_arduboy # (
 	parameter USE_TIMER_4 = "TRUE",
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
+	parameter UART_TX_ENABLED = "TRUE",
+	parameter UART_RX_ENABLED = "TRUE",
 	parameter USE_TWI_1 = "TRUE",
+	parameter TWI_IP = "STANDARD", // "STANDARD", "CUSTOM", "HW"
 	parameter USE_EEPROM = "TRUE",
 	parameter USE_RNG_AS_ADC ="TRUE"
 )(
@@ -591,8 +594,8 @@ atmega_uart # (
 	.UCSRC_ADDR('hca),
 	.UBRRL_ADDR('hcc),
 	.UBRRH_ADDR('hcd),
-	.USE_TX("TRUE"),
-	.USE_RX("TRUE")
+	.USE_TX(UART_TX_ENABLED),
+	.USE_RX(UART_RX_ENABLED)
 	)uart_1(
 	.rst_i(io_rst),
 	.clk_i(core_clk),
@@ -630,6 +633,8 @@ wire [7:0]dat_twi0_d_out;
 generate
 if (USE_TWI_1 == "TRUE")
 begin: TWI1
+if (TWI_IP == "STANDARD")
+begin
 atmega_twi #(
 	.PLATFORM(PLATFORM),
 	.BUS_ADDR_DATA_LEN(8),
@@ -639,7 +644,7 @@ atmega_twi #(
 	.TWDR_ADDR('hbb),
 	.TWCR_ADDR('hbc),
 	.TWAMR_ADDR('hbd)
-    )twi_1(
+)twi_1(
 	.rst_i(io_rst),
 	.clk_i(core_clk),
 	.addr_i(io_addr),
@@ -653,7 +658,36 @@ atmega_twi #(
 	.scl_io(twi_scl),
 	.sda_io(twi_sda)
     );
-end
+end // (TWI_IP != "STANDARD")
+else if (TWI_IP == "CUSTOM")
+begin  
+twi_s #(
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.DINAMIC_BAUDRATE("TRUE"),
+	.BAUDRATE_DIVIDER(0),
+	.CTRLA_ADDR('hb8),
+	.CTRLB_ADDR('hb9),
+	.CTRLC_ADDR('hba),
+	.STATUS_ADDR('hbb),
+	.BAUD_ADDR('hbc),
+	.DATA_ADDR('hbd)
+)twi_(
+	.rst_i(io_rst),
+	.clk_i(core_clk),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_twi0_d_out),
+	.int_o(int_twi),
+	.int_ack_i(int_adc_ack),
+	
+	.scl_io(twi_scl),
+	.sda_io(twi_sda)
+    );
+end // (TWI_IP != "CUSTOM")
+end // (USE_TWI_1 != "TRUE")
 else
 begin
 assign dat_twi0_d_out = 8'h0;
