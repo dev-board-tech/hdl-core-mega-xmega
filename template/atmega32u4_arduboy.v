@@ -49,13 +49,9 @@ reg [9:0]cnt;
 always @(posedge clk)
 begin
 	if(rst)
-	begin
 		cnt <= 10'h000;
-	end
 	else
-	begin
 		cnt <= cnt + 10'd1;
-	end
 end
 
 assign clk8 = cnt[2];
@@ -92,11 +88,15 @@ module atmega32u4_arduboy # (
 	parameter USE_PLL = "TRUE",
 	parameter USE_PLL_HI_FREQ = "FALSE",
 	parameter USE_TIMER_0 = "TRUE",
+	parameter USE_REDUCED_TIM0 = "TRUE",
 	parameter USE_TIMER_1 = "TRUE",
+	parameter USE_REDUCED_TIM1 = "TRUE",
 	parameter USE_TIMER_3 = "TRUE",
+	parameter USE_REDUCED_TIM3 = "TRUE",
 	parameter USE_TIMER_4 = "TRUE",
 	parameter USE_SPI_1 = "TRUE",
 	parameter USE_UART_1 = "TRUE",
+	parameter USE_USB2UART = "FALSE",
 	parameter UART_TX_ENABLED = "TRUE",
 	parameter UART_RX_ENABLED = "TRUE",
 	parameter USE_TWI_1 = "TRUE",
@@ -107,6 +107,7 @@ module atmega32u4_arduboy # (
 	input core_rst,
 	input dev_rst,
 	input clk,
+	input clk48m_i,
 	input clk_pll,
 	input nmi_sig,
 	output nmi_ack,
@@ -123,7 +124,10 @@ module atmega32u4_arduboy # (
 	input uart_rx,
 	inout twi_scl,
 	inout twi_sda,
-	/* For IO's that are not included in original ATmega32u4 device */
+	inout usbp_io,
+	inout usbn_io,
+
+/* For IO's that are not included in original ATmega32u4 device */
 	output [7:0]io_addr,
 	output [7:0]io_out,
 	output io_write,
@@ -583,7 +587,7 @@ endgenerate
 /* UART */
 wire [7:0]dat_uart0_d_out;
 generate
-if (USE_UART_1 == "TRUE")
+if (USE_UART_1 == "TRUE" && USE_USB2UART != "TRUE")
 begin: UART1
 atmega_uart # (
 	.PLATFORM(PLATFORM),
@@ -617,7 +621,37 @@ atmega_uart # (
 	.tx_connect_o(uart_tx_io_connect)
 	);
 end
-else
+else if (USE_UART_1 == "TRUE" && USE_USB2UART == "TRUE")
+begin: USB2UART
+atmega_usb2uart # (
+	.PLATFORM(PLATFORM),
+	.BUS_ADDR_DATA_LEN(8),
+	.UDR_ADDR('hce),
+	.UCSRA_ADDR('hc8),
+	.UCSRB_ADDR('hc9)
+	)usb2uart_1(
+	.rst_i(io_rst),
+	.rst_usb_i(io_rst),
+	.clk_i(core_clk),
+	.clk48m_i(clk48m_i),
+	.addr_i(io_addr),
+	.wr_i(io_write),
+	.rd_i(io_read),
+	.bus_i(io_out),
+	.bus_o(dat_uart0_d_out),
+	
+	.rxc_int_o(int_usart1_rx),
+	.rxc_int_ack_i(int_usart1_rx_ack),
+	.txc_int_o(int_usart1_tx),
+	.txc_int_ack_i(int_usart1_tx_ack),
+	.udre_int_o(int_usart1_udre),
+	.udre_int_ack_i(int_usart1_udre_ack),
+
+	.usbp_io(usbp_io),
+	.usbn_io(usbn_io)
+	);
+end
+else /* USE_UART_1 != "TRUE" */
 begin
 assign dat_uart0_d_out = 8'h0;
 assign int_usart1_rx = 1'b0;
@@ -717,8 +751,11 @@ if (USE_TIMER_0 == "TRUE")
 begin:TIMER0
 atmega_tim_8bit # (
 	.PLATFORM(PLATFORM),
+	.USE_SIMPLE_COUNTER(USE_REDUCED_TIM0),
 	.USE_OCRA("TRUE"),
+	.USE_OCRA_OUT("FALSE"),
 	.USE_OCRB("FALSE"),
+	.USE_OCRB_OUT("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h44),
@@ -774,9 +811,14 @@ if (USE_TIMER_1 == "TRUE")
 begin: TIMER1
 atmega_tim_16bit # (
 	.PLATFORM(PLATFORM),
+	.USE_SIMPLE_COUNTER(USE_REDUCED_TIM1),
+	.USE_OCRA_OUT("FALSE"),
 	.USE_OCRB("TRUE"),
+	.USE_OCRB_OUT("FALSE"),
 	.USE_OCRC("TRUE"),
+	.USE_OCRC_OUT("FALSE"),
 	.USE_OCRD("FALSE"),
+	.USE_OCRD_OUT("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h80),
@@ -848,9 +890,14 @@ if (USE_TIMER_3 == "TRUE")
 begin: TIMER3
 atmega_tim_16bit # (
 	.PLATFORM(PLATFORM),
+	.USE_SIMPLE_COUNTER(USE_REDUCED_TIM3),
+	.USE_OCRA_OUT("FALSE"),
 	.USE_OCRB("FALSE"),
+	.USE_OCRB_OUT("FALSE"),
 	.USE_OCRC("FALSE"),
+	.USE_OCRC_OUT("FALSE"),
 	.USE_OCRD("FALSE"),
+	.USE_OCRD_OUT("FALSE"),
 	.BUS_ADDR_DATA_LEN(8),
 	.GTCCR_ADDR('h43),
 	.TCCRA_ADDR('h90),

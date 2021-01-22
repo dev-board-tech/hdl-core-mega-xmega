@@ -42,7 +42,7 @@ generate
 if(PLATFORM == "XILINX")
 begin
 	
-(* rom_style="block" *)
+(* ram_style="block" *)
 reg [DATA_BUS_WIDTH - 1:0] mem [ADDR_RAM_DEPTH-1:0];
     
 initial begin
@@ -72,7 +72,7 @@ reg [DATA_BUS_WIDTH - 1:0]d_out_tmp;
 reg [ADDR_BUS_WIDTH-1:0] addr;
 if(MEM_MODE == "BLOCK")
 begin
-(* rom_style="block" *)
+(* ram_style="block" *)
 reg [DATA_BUS_WIDTH - 1:0] mem [ADDR_RAM_DEPTH-1:0];
     
 initial begin
