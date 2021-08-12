@@ -153,7 +153,7 @@ wire ram_sel = |data_addr[BUS_ADDR_DATA_LEN-1:8];
 wire boot_ram_sel = &data_addr[BUS_ADDR_DATA_LEN-1:9];
 wire app_ram_sel = ram_sel & ~boot_ram_sel;
 
-wire boot_rom_select = &pgm_addr[14 : BOOT_ADDR_WIDTH];
+wire boot_rom_select = &pgm_addr[ROM_ADDR_WIDTH - 1 : BOOT_ADDR_WIDTH];
 
 assign io_addr = data_addr[7:0];
 assign io_out = core_data_out;
@@ -1331,6 +1331,7 @@ mega_ram  #(
 
 /* BOOT RAM */
 wire [7:0]app_ram_bus_out;
+wire [RAM_ADDR_WIDTH-1:0]app_ram_addr = data_addr - RESERVED_RAM_FOR_IO;
 mega_ram  #(
 	.PLATFORM(PLATFORM),
 	.MEM_MODE(RAM_TYPE),
@@ -1343,7 +1344,7 @@ mega_ram  #(
 	.cs(app_ram_sel),
 	.re(data_read),
 	.we(data_write),
-	.a(data_addr[RAM_ADDR_WIDTH-1:0] - RESERVED_RAM_FOR_IO),
+	.a(app_ram_addr),
 	.d_in(core_data_out),
 	.d_out(app_ram_bus_out)
 );
