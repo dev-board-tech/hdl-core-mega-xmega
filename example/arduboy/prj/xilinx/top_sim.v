@@ -27,7 +27,8 @@ module top_sim(
 
 reg clk = 1;
 reg rst = 1;
-always	#(5)	clk	<=	~clk;
+//always	#(5)	clk	<=	~clk;
+always	#(41.66)	clk	<=	~clk;
 reg [7:0]sw = 8'hFF;
 wire [7:0]sw_ = sw;
 
